@@ -8,8 +8,8 @@ output_path = "result/subtitle.srt" # 자막 파일 경로
 hf_token_path = "private/hf_token.txt"  # Hugging face 읽기 토큰 파일 경로
 
 font_color = "yellow"    # 자막 하이라이트 색상 
-default_font_size = 72  # 기본 폰트 크기
-whisper_font_size = int(default_font_size * 0.8)
+default_font_size = 48  # 기본 폰트 크기
+whispering_font_size = int(default_font_size * 0.8)
 shouting_font_size = int(default_font_size * 1.2)
 max_words = 10  # 한 문장 당 최대 단어 수
 
@@ -157,13 +157,6 @@ def segments_to_srt(segments, output_path=output_path):
                 start = word_info["start"]
                 end = word_info["end"]
 
-                if word_info["type"] == 0:  # 속삭임
-                    font_size = whisper_font_size
-                elif word_info["type"] == 2:    # 소리침
-                    font_size = shouting_font_size
-                else:   # 일반반
-                    font_size = default_font_size
-
                 # speaker 정보 불러오기
                 # "SPEAKER_00" 형태
                 # speaker = word_info.get("speaker", "Unknown")
@@ -174,14 +167,23 @@ def segments_to_srt(segments, output_path=output_path):
                     start = prev_end_time
                     prev_end_time = end
 
-                highlighted_sentence = f"<font size={font_size}px>"
+                highlighted_sentence = f"<font size={default_font_size}px>"
                 for j, w in enumerate(words):
                     if i == j:
                         # 하이라이트 적용
-                        highlighted_sentence += f'<font color={font_color}>{w["word"]}</font> '
+                        if w["type"] == 0:  # 속삭임
+                            highlighted_sentence += f'<font color={font_color} size={whispering_font_size}px>{w["word"]}</font> '
+                        elif w["type"] == 2:    # 소리침
+                            highlighted_sentence += f'<font color={font_color} size={shouting_font_size}px>{w["word"]}</font> '
+                        else:   # 일반
+                            highlighted_sentence += f'<font color={font_color}>{w["word"]}</font> '
                     else:
-                        # 띄어쓰기 추가
-                        highlighted_sentence += w["word"] + " "
+                        if w["type"] == 0:  # 속삭임
+                            highlighted_sentence += f'<font size={whispering_font_size}px>{w["word"]}</font> '
+                        elif w["type"] == 2:    # 소리침
+                            highlighted_sentence += f'<font size={shouting_font_size}px>{w["word"]}</font> '
+                        else:   # 일반
+                            highlighted_sentence += w["word"] + " "
                 highlighted_sentence += "</font>"
 
                 f.write(f"{index}\n")
