@@ -1,0 +1,5 @@
+numpy==2.2.5
+pyannote.audio==3.3.2
+torch==2.5.1+cu121
+torchaudio==2.5.1+cu121
+whisperx==3.3.2
