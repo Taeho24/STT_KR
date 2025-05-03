@@ -14,9 +14,20 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from STT_KR_SAMPLE_WEB import views
+# Use static() to add url mapping to serve static files during development (only)
+from django.conf.urls.static import static
+from django.conf import settings
+#Add URL maps to redirect the vase URL to our application
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('STT/', include('STT_KR_SAMPLE_WEB.urls')),
+    path('', RedirectView.as_view(url='/STT/', permanent=True)),
 ]
+
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
