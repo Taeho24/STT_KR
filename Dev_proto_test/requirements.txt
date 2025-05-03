@@ -1,6 +1,0 @@
-ffmpeg-python==0.2.0
-future==1.0.0
-PyAudio==0.2.14
-SpeechRecognition==3.14.2
-typing_extensions==4.13.0
-webrtcvad==2.0.10
