@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+    {% load static %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveCaption - 동영상 자막 생성 서비스</title>
+    
+    <!-- Custom static CSS file -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <!-- 헤더 섹션 -->
+    <header>
+        <div class="container">
+            <h1 class="title">LiveCaption</h1>
+            <p class="subtitle">동영상 자막 자동 생성 서비스</p>
+        </div>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="container">
+        <div class="main-content">
+            <!-- 업로드 섹션 -->
+            <section class="upload-section">
+                <h2 class="upload-title">동영상 업로드</h2>
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">동영상 파일을 여기에 끌어다 놓거나</p>
+                    <button class="upload-btn" id="select-file-btn">파일 선택</button>
+                    <input type="file" id="file-input" class="file-input" accept="video/*">
+                    <p class="upload-info">지원 형식: MP4, AVI, MOV, WMV | 최대 크기: 500MB</p>
+                </div>
+            </section>
+
+            <!-- 비디오 미리보기 섹션 -->
+            <section class="preview-section" id="preview-section">
+                <h2 class="preview-title">동영상 미리보기</h2>
+                <div class="video-container">
+                    <video class="video-preview" id="video-preview" controls></video>
+                </div>
+                <div class="preview-controls">
+                    <button class="generate-btn" id="generate-btn">자막 생성하기</button>
+                    <button class="cancel-btn" id="cancel-btn">취소</button>
+                </div>
+            </section>
+
+            <!-- 자막 섹션 -->
+            <section class="caption-section" id="caption-section">
+                <h2 class="caption-title">생성된 자막</h2>
+                
+                <!-- 로딩 표시 -->
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>자막을 생성 중입니다. 잠시만 기다려주세요...</p>
+                </div>
+                
+                <!-- 자막 내용 -->
+                <div class="caption-content" id="caption-content">
+                    <textarea class="caption-textarea" id="caption-textarea" placeholder="자막이 여기에 표시됩니다..."></textarea>
+                    <div class="caption-controls">
+                        <button class="download-btn" id="download-btn">자막 다운로드</button>
+                        <div>
+                            <label for="format-select">형식:</label>
+                            <select class="format-select" id="format-select">
+                                <option value="srt">SRT</option>
+                                <option value="vtt">VTT</option>
+                                <option value="txt">TXT</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 LiveCaption.</p>
+        </div>
+    </footer>
+
+    <!-- 자바스크립트 -->
+    <script>
+        // DOM 요소 선택
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const selectFileBtn = document.getElementById('select-file-btn');
+        const previewSection = document.getElementById('preview-section');
+        const videoPreview = document.getElementById('video-preview');
+        const generateBtn = document.getElementById('generate-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const captionSection = document.getElementById('caption-section');
+        const loading = document.getElementById('loading');
+        const captionContent = document.getElementById('caption-content');
+        const captionTextarea = document.getElementById('caption-textarea');
+        const downloadBtn = document.getElementById('download-btn');
+        const formatSelect = document.getElementById('format-select');
+
+        // 파일 선택 버튼 클릭 시 파일 입력 창 열기
+        selectFileBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 파일 입력 변경 시 처리
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // 드래그 앤 드롭 이벤트 처리
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#4a00e0';
+            uploadArea.style.backgroundColor = '#f9f9f9';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = 'transparent';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = 'transparent';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // 파일 선택 처리 함수
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        // 파일 처리 함수
+        function handleFile(file) {
+            // 파일 유형 검사
+            if (!file.type.startsWith('video/')) {
+                alert('비디오 파일만 업로드할 수 있습니다.');
+                return;
+            }
+            
+            // 파일 크기 검사 (500MB 제한)
+            if (file.size > 500 * 1024 * 1024) {
+                alert('파일 크기는 500MB를 초과할 수 없습니다.');
+                return;
+            }
+            
+            // 비디오 미리보기 설정
+            const videoURL = URL.createObjectURL(file);
+            videoPreview.src = videoURL;
+            
+            // 미리보기 섹션 표시
+            previewSection.style.display = 'block';
+            
+            // 페이지 스크롤
+            previewSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 자막 생성 버튼 클릭 시
+        generateBtn.addEventListener('click', () => {
+            // 자막 섹션 표시
+            captionSection.style.display = 'block';
+            
+            // 로딩 표시
+            loading.style.display = 'block';
+            captionContent.style.display = 'none';
+            
+            // 페이지 스크롤
+            captionSection.scrollIntoView({ behavior: 'smooth' });
+            
+            // 자막 생성 시뮬레이션 (실제로는 서버에 요청을 보내야 함)
+            setTimeout(() => {
+                // 로딩 숨기기
+                loading.style.display = 'none';
+                captionContent.style.display = 'block';
+                
+                // 샘플 자막 데이터 (실제로는 서버에서 받아야 함)
+                const sampleCaptions = 
+`지금은 예시 자막 입니다.
+
+1
+00:00:01,000 --> 00:00:04,000
+안녕하세요, LiveCaption 서비스를 소개합니다.
+
+2
+00:00:04,500 --> 00:00:08,000
+이 서비스는 동영상에 자동으로 자막을 생성해 줍니다.
+
+3
+00:00:08,500 --> 00:00:12,000
+AI 기술을 활용하여 높은 정확도의 자막을 제공합니다.
+
+4
+00:00:12,500 --> 00:00:16,000
+다양한 언어를 지원하며 빠른 처리 속도가 특징입니다.
+
+5
+00:00:16,500 --> 00:00:20,000
+생성된 자막은 편집하고 다운로드할 수 있습니다.`;
+                
+                // 자막 텍스트 영역에 표시
+                captionTextarea.value = sampleCaptions;
+            }, 3000); // 3초 후 자막 표시 (시뮬레이션)
+        });
+
+        // 취소 버튼 클릭 시
+        cancelBtn.addEventListener('click', () => {
+            // 비디오 미리보기 초기화
+            videoPreview.src = '';
+            
+            // 섹션 숨기기
+            previewSection.style.display = 'none';
+            captionSection.style.display = 'none';
+            
+            // 파일 입력 초기화
+            fileInput.value = '';
+        });
+
+        // 자막 다운로드 버튼 클릭 시
+        downloadBtn.addEventListener('click', () => {
+            const format = formatSelect.value;
+            const content = captionTextarea.value;
+            
+            if (!content.trim()) {
+                alert('다운로드할 자막이 없습니다.');
+                return;
+            }
+            
+            // 파일 이름 설정
+            const filename = `captions.${format}`;
+            
+            // Blob 생성
+            const blob = new Blob([content], { type: 'text/plain' });
+            
+            // 다운로드 링크 생성
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            
+            // 링크 클릭하여 다운로드 시작
+            document.body.appendChild(a);
+            a.click();
+            
+            // 정리
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
