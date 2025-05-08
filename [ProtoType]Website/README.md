@@ -18,6 +18,7 @@
 
 4. Migrate and runserver using manage.py
     ```
+    cd [directory containing manage.py]
     python manage.py migrate
     python manage.py runserver
     ```

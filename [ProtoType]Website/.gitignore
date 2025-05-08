@@ -13,6 +13,8 @@ local.properties
 
 # Django stuff:
 *.log
+*.pot
+*.pyc
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -33,3 +35,6 @@ env/
 ENV/
 .venv/
 .pip/
+
+# django SECRET_KEY
+*/secrets.json

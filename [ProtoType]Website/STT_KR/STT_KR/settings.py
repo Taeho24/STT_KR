@@ -10,8 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-import os
+import os, json
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
+import string, random
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,6 +23,35 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+secret_file = os.path.join(BASE_DIR, 'secrets.json')  # secrets.json 파일 위치를 명시
+
+if os.path.exists(secret_file):
+    with open(secret_file) as f:
+        secrets = json.load(f)
+else:
+    secrets = {}
+    
+def generate_random_secret_key(length=50):
+    """무작위 시크릿 키 생성"""
+    chars = ''.join([string.ascii_letters, string.digits, string.punctuation]).replace('\'', '').replace('"', '').replace('\\', '')
+    return ''.join(random.SystemRandom().choice(chars) for _ in range(length))
+
+
+def get_secret(setting):
+    """비밀 변수를 가져오거나 없으면 랜덤 키를 생성"""
+    if setting in secrets:
+        return secrets[setting]
+    if setting == "SECRET_KEY":
+        new_key = generate_random_secret_key()
+        secrets[setting] = new_key
+        with open(secret_file, 'w+') as f:
+            json.dump(secrets, f, indent=4)
+        return new_key
+
+    raise ImproperlyConfigured(f"Set the {setting} environment variable")
+
+
+SECRET_KEY = get_secret("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
