@@ -148,9 +148,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS = (
+STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'STT_KR_SAMPLE_WEB/static'),
-)
+    os.path.join(BASE_DIR, 'node_modules'),
+]
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
