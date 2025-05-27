@@ -1,7 +1,7 @@
 # Development
-private/hf_token.txt
-result/subtitle.srt
-assets/*.mp4
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/hf_token.txt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/subtitle.srt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/assets/*.wav
 
 # Environments
 .venv
