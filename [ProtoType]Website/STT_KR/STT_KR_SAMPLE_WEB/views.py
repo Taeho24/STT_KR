@@ -4,7 +4,7 @@ from django.http import HttpResponse
 from django.http import HttpResponseServerError
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from .utils import video_to_srt
+from .utils.subtitle_generator import SubtitleGenerator
 
 
 @csrf_exempt
@@ -19,11 +19,8 @@ def generate_caption(request):
                     destination.write(chunk)
 
             # 오디오 처리
-            video_to_srt.process_video(video_path=audio_path)
-
-            # SRT 읽기
-            with open(video_to_srt.output_path, 'r', encoding='utf-8') as f:
-                srt_text = f.read()
+            generator = SubtitleGenerator(audio_path=audio_path)
+            srt_text = generator.generate_subtitles()
 
             return HttpResponse(srt_text, content_type="text/plain")
         return HttpResponse("Invalid request", status=400)
