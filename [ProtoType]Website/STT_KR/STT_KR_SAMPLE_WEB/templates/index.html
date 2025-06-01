@@ -39,6 +39,57 @@
                 <div class="video-container">
                     <video class="video-preview" id="video-preview" controls></video>
                 </div>
+
+                <!-- 자막 설정 옵션 -->
+                <div class="caption-settings" id="caption-settings">
+                    <h3 class="settings-title">자막 설정</h3>
+                    
+                    <!-- 폰트 크기 설정 -->
+                    <div class="settings-group">
+                        <h4>자막 폰트 크기 설정</h4>
+                        <div class="font-settings">
+                            <div class="setting-item">
+                                <label for="default-font-size">기본 폰트 크기 (px)</label>
+                                <input type="number" id="default-font-size" min="10" max="72" value="24">
+                            </div>
+                            <div class="setting-item">
+                                <label for="min-font-size">최소 폰트 크기 (px)</label>
+                                <input type="number" id="min-font-size" min="8" max="36" value="16">
+                            </div>
+                            <div class="setting-item">
+                                <label for="max-font-size">최대 폰트 크기 (px)</label>
+                                <input type="number" id="max-font-size" min="16" max="96" value="36">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 색상 설정 -->
+                    <div class="settings-group">
+                        <h4>자막 색상 설정</h4>
+                        <div class="color-settings">
+                            <div class="setting-item">
+                                <label for="highlight-color">하이라이트 색상</label>
+                                <input type="color" id="highlight-color" value="#FFFF00">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 감정별 색상 설정 -->
+                    <div class="settings-group">
+                        <h4>감정별 자막 색상 설정</h4>
+                        <div class="emotion-colors-container">
+                            <div class="emotion-colors-grid" id="emotion-colors-grid">
+                                <!-- 감정 색상 설정이 동적으로 생성됩니다 -->
+                            </div>
+                            <div class="emotion-actions">
+                                <button class="emotion-btn reset-emotions-btn" id="reset-emotions-btn">기본값 복원</button>
+                                <!-- 향후 감정 추가 기능을 위한 버튼 (현재는 숨김) -->
+                                <!-- <button class="emotion-btn add-emotion-btn" id="add-emotion-btn">감정 추가</button> -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="preview-controls">
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
@@ -86,6 +137,18 @@
         import { FFmpeg } from '../static/@ffmpeg/ffmpeg/dist/esm/index.js'
         import { fetchFile } from '../static/@ffmpeg/util/dist/esm/index.js'
 
+        // 감정 데이터 정의
+        const EMOTIONS = {
+            neutral: { name: '중립', defaultColor: '#FFFFFF' },
+            happy: { name: '행복', defaultColor: '#00FF00' },
+            sad: { name: '슬픔', defaultColor: '#FF0000' },
+            angry: { name: '분노', defaultColor: '#0000FF' },
+            fear: { name: '공포', defaultColor: '#800080' },
+            surprise: { name: '놀람', defaultColor: '#00FFFF' },
+            disgust: { name: '혐오', defaultColor: '#008080' }
+            // newEmotion: { name: '감정', defaultColor: '#색상코드' }
+        };
+
         // DOM 요소 선택
         const uploadArea = document.getElementById('upload-area');
         const fileInput = document.getElementById('file-input');
@@ -101,6 +164,14 @@
         const downloadBtn = document.getElementById('download-btn');
         const formatSelect = document.getElementById('format-select');
 
+        // 자막 설정 요소
+        const defaultFontSize = document.getElementById('default-font-size');
+        const minFontSize = document.getElementById('min-font-size');
+        const maxFontSize = document.getElementById('max-font-size');
+        const highlightColor = document.getElementById('highlight-color');
+        const emotionColorsGrid = document.getElementById('emotion-colors-grid');
+        const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
+        
         const ffmpeg = new FFmpeg();
         await ffmpeg.load();
 
@@ -147,6 +218,89 @@
                 alert('자막 생성에 실패했습니다.');
             }
         }
+
+        // 감정 색상 설정 UI 생성 함수
+        function createEmotionColorSettings() {
+            emotionColorsGrid.innerHTML = '';
+            
+            Object.entries(EMOTIONS).forEach(([emotionKey, emotionData]) => {
+                const emotionItem = document.createElement('div');
+                emotionItem.className = 'emotion-item';
+                
+                emotionItem.innerHTML = `
+                    <label class="emotion-label" for="emotion-${emotionKey}">${emotionData.name}</label>
+                    <input 
+                        type="color" 
+                        id="emotion-${emotionKey}" 
+                        class="emotion-color-input" 
+                        value="${emotionData.defaultColor}"
+                        data-emotion="${emotionKey}"
+                    >
+                `;
+                
+                emotionColorsGrid.appendChild(emotionItem);
+            });
+        }
+
+        // 감정 색상 설정 값 수집 함수
+        function getEmotionColors() {
+            const emotionColors = {};
+            
+            Object.keys(EMOTIONS).forEach(emotionKey => {
+                const colorInput = document.getElementById(`emotion-${emotionKey}`);
+                if (colorInput) {
+                    emotionColors[emotionKey] = colorInput.value;
+                }
+            });
+            
+            return emotionColors;
+        }
+
+        // 감정 색상을 기본값으로 리셋하는 함수
+        function resetEmotionColors() {
+            Object.entries(EMOTIONS).forEach(([emotionKey, emotionData]) => {
+                const colorInput = document.getElementById(`emotion-${emotionKey}`);
+                if (colorInput) {
+                    colorInput.value = emotionData.defaultColor;
+                }
+            });
+        }
+
+        //감정 색상 설정 UI 생성
+        createEmotionColorSettings();
+
+        // 기본값 복원 버튼 이벤트
+        resetEmotionsBtn.addEventListener('click', () => {
+            if (confirm('모든 감정 색상을 기본값으로 복원하시겠습니까?')) {
+                resetEmotionColors();
+            }
+        });
+
+        // 폰트 크기 유효성 검사
+        function validateFontSizes() {
+            const defaultSize = parseInt(defaultFontSize.value);
+            const minSize = parseInt(minFontSize.value);
+            const maxSize = parseInt(maxFontSize.value);
+            
+            if (minSize > defaultSize) {
+                alert('최소 폰트 크기는 기본 폰트 크기보다 작아야 합니다.');
+                minFontSize.value = defaultSize - 4;
+                return false;
+            }
+            
+            if (maxSize < defaultSize) {
+                alert('최대 폰트 크기는 기본 폰트 크기보다 커야 합니다.');
+                maxFontSize.value = defaultSize + 4;
+                return false;
+            }
+            
+            return true;
+        }
+
+        // 폰트 크기 입력 필드 변경 시 유효성 검사
+        defaultFontSize.addEventListener('change', validateFontSizes);
+        minFontSize.addEventListener('change', validateFontSizes);
+        maxFontSize.addEventListener('change', validateFontSizes);
 
         // 자막 생성 버튼 클릭 시
         generateBtn.addEventListener('click', async () => {
