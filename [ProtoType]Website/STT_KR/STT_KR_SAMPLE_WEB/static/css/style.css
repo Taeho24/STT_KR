@@ -139,10 +139,154 @@ header {
     display: block;
 }
 
+/* 자막 설정 스타일 */
+.caption-settings {
+    max-width: 800px;
+    margin: 20px auto;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #eee;
+}
+
+.settings-title {
+    font-size: 1.3rem;
+    margin-bottom: 15px;
+    color: #4a00e0;
+    text-align: center;
+}
+
+.settings-group {
+    margin-bottom: 20px;
+}
+
+.settings-group h4 {
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+.font-settings, .color-settings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.setting-item {
+    margin-bottom: 10px;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.setting-item input[type="number"], 
+.setting-item input[type="color"] {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.setting-item input[type="color"] {
+    height: 40px;
+    cursor: pointer;
+}
+
+/* 감정 색상 설정 개선된 스타일 */
+.emotion-colors-container {
+    background-color: white;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid #ddd;
+}
+
+.emotion-colors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.emotion-item {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.emotion-item:hover {
+    border-color: #4a00e0;
+    box-shadow: 0 2px 8px rgba(74, 0, 224, 0.1);
+}
+
+.emotion-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.emotion-color-input {
+    width: 100%;
+    height: 35px;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.emotion-color-input:hover {
+    border-color: #4a00e0;
+}
+
+.emotion-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.emotion-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.reset-emotions-btn {
+    background-color: #6c757d;
+    color: white;
+}
+
+.reset-emotions-btn:hover {
+    background-color: #5a6268;
+}
+
+.add-emotion-btn {
+    background-color: #28a745;
+    color: white;
+}
+
+.add-emotion-btn:hover {
+    background-color: #218838;
+}
+
 .preview-controls {
     display: flex;
     justify-content: center;
     gap: 15px;
+    margin-top: 20px;
 }
 
 .generate-btn {
@@ -275,6 +419,14 @@ footer {
     .upload-area {
         padding: 30px 15px;
     }
+
+    .font-settings, .color-settings {
+        grid-template-columns: 1fr;
+    }
+
+    .emotion-colors-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
 }
 
 @media (max-width: 480px) {
@@ -293,5 +445,9 @@ footer {
     .caption-controls {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .emotion-colors-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }
