@@ -144,8 +144,8 @@
         const EMOTIONS = {
             neutral: { name: '중립', defaultColor: '#FFFFFF' },
             happy: { name: '행복', defaultColor: '#00FF00' },
-            sad: { name: '슬픔', defaultColor: '#FF0000' },
-            angry: { name: '분노', defaultColor: '#0000FF' },
+            sad: { name: '슬픔', defaultColor: '#0000FF' },
+            angry: { name: '분노', defaultColor: '#FF0000' },
             fear: { name: '공포', defaultColor: '#800080' },
             surprise: { name: '놀람', defaultColor: '#00FFFF' },
             disgust: { name: '혐오', defaultColor: '#008080' }
@@ -203,8 +203,20 @@
                 return;
             }
 
+            // 오디오 파일 추가
             const formData = new FormData();
             formData.append('audio', audioBlob, 'audio.wav');
+
+            // 자막 스타일 수집
+            formData.append('default_font_size', defaultFontSize.value);
+            formData.append('min_font_size', minFontSize.value);
+            formData.append('max_font_size', maxFontSize.value);
+            formData.append('highlight_color', highlightColor.value);
+
+            const emotionColors = getEmotionColors();
+            for (const [emotion, color] of Object.entries(emotionColors)) {
+                formData.append(`${emotion}`, color);
+            }
 
             try {
                 const res = await fetch('/STT/generate-caption/', {

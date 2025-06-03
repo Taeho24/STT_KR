@@ -6,9 +6,10 @@ from django.conf import settings
 
 class SubtitleGenerator:
     def __init__(self, audio_path, 
-                 font_color="yellow",
+                 highlight_color="yellow",
                  default_font_size=12,
-                 font_size_weight=0.2,  # 폰트 크기 가중치 (속삭임 = 기본 * 0.8, 고함 = 기본 * 1.2)
+                 min_font_size=10,
+                 max_font_size=14,
                  max_words=10,  # 자막 세그먼트 당 최대 단어 개수 (최대 10개 단어 단위로 나누어 자막 생성)
                  device="cuda", # GPU 사용
                  batch_size=16,
@@ -18,10 +19,10 @@ class SubtitleGenerator:
         self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'results', 'subtitle.srt')
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
         
-        self.font_color = font_color
+        self.highlight_color = highlight_color
         self.default_font_size = default_font_size
-        self.whispering_font_size = int(default_font_size * (1-font_size_weight))
-        self.shouting_font_size = int(default_font_size * (1+font_size_weight))
+        self.whispering_font_size = min_font_size
+        self.shouting_font_size = max_font_size
         self.max_words = max_words
         self.device = device
         self.batch_size = batch_size
@@ -114,11 +115,11 @@ class SubtitleGenerator:
                         word_type = w.get("type", 1)
                         if j == i:
                             if word_type == 0:
-                                highlighted_sentence += f'<font color={self.font_color} size={self.whispering_font_size}px>{word_text}</font> '
+                                highlighted_sentence += f'<font color={self.highlight_color} size={self.whispering_font_size}px>{word_text}</font> '
                             elif word_type == 2:
-                                highlighted_sentence += f'<font color={self.font_color} size={self.shouting_font_size}px>{word_text}</font> '
+                                highlighted_sentence += f'<font color={self.highlight_color} size={self.shouting_font_size}px>{word_text}</font> '
                             else:
-                                highlighted_sentence += f'<font color={self.font_color}>{word_text}</font> '
+                                highlighted_sentence += f'<font color={self.highlight_color}>{word_text}</font> '
                         else:
                             if word_type == 0:
                                 highlighted_sentence += f'<font size={self.whispering_font_size}px>{word_text}</font> '
