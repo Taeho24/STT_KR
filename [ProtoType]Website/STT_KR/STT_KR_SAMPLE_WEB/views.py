@@ -5,6 +5,7 @@ from django.http import HttpResponseServerError
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from .utils.subtitle_generator import SubtitleGenerator
+from .utils.config import config
 
 
 @csrf_exempt
@@ -34,9 +35,15 @@ def generate_caption(request):
                 "disgust": request.POST.get("혐오", "#008080"),
             }
 
+            config.set(default_font_size, 'font', 'default_size')
+            config.set(min_font_size, 'font', 'min_size')
+            config.set(max_font_size, 'font', 'max_size')
+            config.set(highlight_color, 'colors', 'highlight_color')
+            config.set(emotion_colors, 'colors', 'emotion_colors')
+
             # 오디오 처리
-            generator = SubtitleGenerator(audio_path=audio_path, default_font_size=default_font_size, min_font_size=min_font_size, max_font_size=max_font_size, highlight_color=highlight_color)
-            srt_text = generator.generate_subtitles()
+            generator = SubtitleGenerator(audio_path=audio_path)
+            srt_text = generator.generate_srt_subtitle()
 
             return HttpResponse(srt_text, content_type="text/plain")
         return HttpResponse("Invalid request", status=400)
