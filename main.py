@@ -13,7 +13,7 @@ import datetime  # 추가
 
 # 상대 경로 모듈 가져오기
 from audio_analyzer import AudioAnalyzer
-from emotion_classifier import EmotionClassifier  # 새로운 감정 분류기로 변경
+from emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
 from subtitle_generator import generate_ass_subtitle
 from utils import read_auth_token, split_segment_by_max_words, get_video_info, add_subtitle_to_video
 from config import config
@@ -29,11 +29,6 @@ def parse_arguments():
     parser.add_argument("--batch_size", type=int, default=16, help="배치 크기")
     parser.add_argument("--compute_type", type=str, default=None, help="계산 타입")
     parser.add_argument("--add_to_video", action="store_true", help="자막을 영상에 합성")
-    parser.add_argument("--emotion_params", type=str, help="감정 분류기 파라미터 파일 경로")
-    parser.add_argument("--load_params", type=str, help="감정 분류기 파라미터 파일 경로")
-    parser.add_argument("--tune", action="store_true", help="감정 분류기 파라미터 튜닝 수행")
-    parser.add_argument("--ground_truth", type=str, help="튜닝을 위한 정답 데이터 파일 경로")
-    parser.add_argument("--config", type=str, help="설정 파일 경로")
     return parser.parse_args()
 
 def generate_srt_subtitle(segments, output_path):
@@ -209,14 +204,16 @@ def process_video(args):
                 word["speaker"] = segment["speaker"]
 
     segments = split_segment_by_max_words(result["segments"], args.max_words)
-    segments = [s for s in segments if (s["end"] - s["start"]) > 0.7]
+    # 최소 지속 시간을 0.7초에서 0.2초로 변경
+    # 너무 짧은 노이즈만 제거 (200ms 미만)
+    segments = [s for s in segments if (s["end"] - s["start"]) > 0.2]
     print(f"분할된 세그먼트 수: {len(segments)}")
 
     print("오디오 특성 분석 중...")
     audio_analyzer = AudioAnalyzer(sample_rate=16000)
     segments = audio_analyzer.analyze_audio_features(segments, audio)
 
-    # 감정 분류기 초기화
+    # 감정 분류기 초기화 (중복 제거)
     print("감정 분류 모델 로드 중...")
     emotion_classifier = EmotionClassifier(
         device=args.device,
@@ -227,89 +224,9 @@ def process_video(args):
 
     # 감정 분석 배치 처리
     print("감정 분석 중...")
-    results = emotion_classifier.process_batch(segments, audio)
-    
-    # 결과를 segments에 반영
-    for segment, result in zip(segments, results):
-        segment['emotion'] = result.emotion
-        segment['emotion_color'] = EmotionClassifier.get_emotion_color(result.emotion)
-        segment['confidence'] = result.confidence
-        segment['features'] = result.features
-
-    # 저장된 파라미터 로드
-    if args.load_params:
-        emotion_classifier.load_parameters(args.load_params)
-        print(f"감정 분류기 파라미터를 로드했습니다: {args.load_params}")
-    
-    # 자동 튜닝 수행
-    if args.tune and args.ground_truth:
-        print("\n=== 하이퍼파라미터 튜닝 시작 ===")
-        
-        # 첫 번째 데이터셋 준비
-        first_dataset = {
-            'segments': segments,
-            'audio': audio,
-            'ground_truth': emotion_classifier.parse_ground_truth(args.ground_truth)
-        }
-        
-        validation_sets = [first_dataset]
-        
-        # 추가 데이터셋 처리
-        if args.extra_video and args.extra_ground_truth:
-            try:
-                print("\n추가 검증 데이터셋 처리 중...")
-                extra_segments = process_extra_video(args.extra_video)
-                extra_audio = whisperx.load_audio(args.extra_video)
-                
-                extra_dataset = {
-                    'segments': extra_segments,
-                    'audio': extra_audio,
-                    'ground_truth': emotion_classifier.parse_ground_truth(args.extra_ground_truth)
-                }
-                validation_sets.append(extra_dataset)
-                print("추가 데이터셋 처리 완료\n")
-                
-                # 하이퍼파라미터 튜닝 수행
-                score, best_params = emotion_classifier.tune_parameters(validation_sets, args.base_params)
-                
-                if score is not None and score >= 0.8:
-                    print("\n=== 튜닝 성공 ===")
-                    print(f"최종 정확도: {score:.2%}")
-                    
-                    # 튜닝된 파라미터 저장
-                    params_path = args.save_params or os.path.join(
-                        emotion_classifier.default_params_dir,
-                        f"tuned_params_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    )
-                    emotion_classifier.save_parameters(params_path)
-                    print(f"최적화된 파라미터 저장됨: {params_path}")
-                    
-                    # 튜닝된 파라미터 적용
-                    emotion_classifier.load_parameters(params_path)
-                else:
-                    print("\n=== 튜닝 실패 ===")
-                    print("목표 정확도(80%)를 달성하지 못했습니다.")
-                    if args.base_params:
-                        print(f"기존 파라미터 유지: {args.base_params}")
-                        emotion_classifier.load_parameters(args.base_params)
-            except Exception as e:
-                print(f"튜닝 중 오류 발생: {e}")
-                if args.base_params:
-                    emotion_classifier.load_parameters(args.base_params)
-        else:
-            print("튜닝을 위해서는 두 개의 데이터셋이 필요합니다.")
-            if args.base_params:
-                emotion_classifier.load_parameters(args.base_params)
-    
-    # 감정 분류기 초기화 및 파라미터 로드
-    emotion_classifier = EmotionClassifier(device=args.device)
-    if args.emotion_params:
-        emotion_classifier.load_parameters(args.emotion_params)
-        print(f"감정 분류기 파라미터를 로드했습니다: {args.emotion_params}")
-    
-    print("감정 분석 중...")
     segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
 
+    # 감정 분석 통계 출력
     emotion_stats = {}
     for segment in segments:
         emotion = segment.get('emotion', 'unknown')
@@ -343,9 +260,7 @@ def process_video(args):
 def main():
     args = parse_arguments()
     
-    # 사용자 설정 파일이 있으면 로드
-    if args.config:
-        config.load_config(args.config)
+    # config 관련 코드 제거
     
     # 시작 시간 기록
     start_time = time.time()

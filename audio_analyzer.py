@@ -133,6 +133,10 @@ class AudioAnalyzer:
             'fast': -5      # 매우 빠른 발화 → 자간 좁게
         }
 
+        # 최소 지속 시간 설정 추가
+        self.min_duration = 0.2  # 200ms
+        self.ideal_duration = 0.5  # 500ms (음성 특성 분석에 이상적인 길이)
+
     def compute_rms(self, audio_segment):
         """오디오 세그먼트의 RMS(Root Mean Square) 볼륨 계산"""
         if isinstance(audio_segment, np.ndarray):
@@ -442,22 +446,29 @@ class AudioAnalyzer:
         self.analyze_speech_rate_distribution(segments)
         
         for segment in segments:
-            # 단어 정보가 있고, 시작/끝 시간이 있는 단어만 처리
-            words = segment.get('words', [])
-            valid_words = [w for w in words if 'start' in w and 'end' in w]
+            duration = segment['end'] - segment['start']
             
-            # 세그먼트의 볼륨, 피치 분석 (세그먼트 레벨)
-            seg_start = int(segment['start'] * self.sample_rate)
-            seg_end = int(segment['end'] * self.sample_rate)
-            seg_audio = audio[seg_start:seg_end]
-            
+            # 짧은 세그먼트 처리 개선
+            if duration < self.min_duration:
+                # 주변 컨텍스트 고려
+                context_audio = self._get_context_audio(audio, segment, pad_duration=0.1)
+                seg_audio = context_audio
+            else:
+                start_idx = int(segment['start'] * self.sample_rate)
+                end_idx = int(segment['end'] * self.sample_rate)
+                seg_audio = audio[start_idx:end_idx]
+
             if len(seg_audio) > 0:
                 seg_volume = self.compute_rms(seg_audio)
                 segment['volume_level'] = self._classify_volume([seg_volume])[0]
                 
                 # 단어별 특성 처리
-                for word in valid_words:
+                words = segment.get('words', [])
+                for word in words:
                     try:
+                        if not isinstance(word, dict) or 'start' not in word or 'end' not in word:
+                            continue
+
                         # 단어의 시작/끝 시간을 샘플 인덱스로 변환
                         start_idx = int(word['start'] * self.sample_rate)
                         end_idx = int(word['end'] * self.sample_rate)
@@ -484,7 +495,7 @@ class AudioAnalyzer:
                         
                         # 발화 속도는 단어 단위로 계산
                         if word['end'] - word['start'] > 0:
-                            speech_rate = len(word['word']) / (word['end'] - word['start'])
+                            speech_rate = len(word.get('word', '')) / (word['end'] - word['start'])
                             word['speech_rate'] = self.assign_speech_rate_level(speech_rate)
                         else:
                             word['speech_rate'] = 'normal'
@@ -497,17 +508,27 @@ class AudioAnalyzer:
             # 세그먼트에 통계 정보 저장
             segment['volume_stats'] = {
                 'mean': np.mean([self.compute_rms(audio[int(w['start']*self.sample_rate):int(w['end']*self.sample_rate)]) 
-                               for w in valid_words]) if valid_words else 0.0,
-                'levels': [w['volume_level'] for w in valid_words] if valid_words else ['normal']
+                               for w in words if isinstance(w, dict) and 'start' in w and 'end' in w]) if words else 0.0,
+                'levels': [w.get('volume_level', 'normal') for w in words] if words else ['normal']
             }
             segment['pitch_stats'] = {
-                'levels': [w['pitch_level'] for w in valid_words] if valid_words else ['normal']
+                'levels': [w.get('pitch_level', 'normal') for w in words] if words else ['normal']
             }
             segment['speech_rate_stats'] = {
-                'levels': [w['speech_rate'] for w in valid_words] if valid_words else ['normal']
+                'levels': [w.get('speech_rate', 'normal') for w in words] if words else ['normal']
             }
         
         return segments
+
+    def _get_context_audio(self, audio, segment, pad_duration=0.1):
+        """짧은 세그먼트를 위한 컨텍스트 오디오 획득"""
+        start = max(0, segment['start'] - pad_duration)
+        end = min(len(audio) / self.sample_rate, segment['end'] + pad_duration)
+        
+        start_idx = int(start * self.sample_rate)
+        end_idx = int(end * self.sample_rate)
+        
+        return audio[start_idx:end_idx]
 
     def analyze_volume(self, audio_segment):
         """볼륨 레벨 분석 (3단계)"""

@@ -2,6 +2,63 @@ import json
 import os
 from pathlib import Path
 
+# 프로젝트 루트 디렉토리 설정
+ROOT_DIR = Path(__file__).parent
+
+# 필요한 디렉토리 구조 설정
+DIRS = {
+    'assets': ROOT_DIR / 'assets',      # 입력 비디오 저장
+    'result': ROOT_DIR / 'result',      # 결과물 저장
+    'private': ROOT_DIR / 'private',    # 토큰 등 민감한 파일 저장
+    'cache': ROOT_DIR / '.cache'        # 캐시 파일 저장
+}
+
+# 디렉토리 생성
+for dir_path in DIRS.values():
+    dir_path.mkdir(exist_ok=True)
+
+# 설정값
+CONFIG = {
+    'paths': DIRS,
+    'emotions': {
+        'mapping': {
+            'happy': 'happy',
+            'sad': 'sad',
+            'angry': 'angry',
+            'fear': 'fear',
+            'surprise': 'surprise',
+            'disgust': 'disgust',
+            'neutral': 'neutral'
+        },
+        'weights': {'audio': 0.7, 'text': 0.3},
+        'emotion_weights': {
+            'neutral': 0.9,
+            'happy': 1.1,
+            'sad': 1.0,
+            'angry': 1.1,
+            'fear': 0.9,
+            'surprise': 1.0,
+            'disgust': 0.8
+        }
+    },
+    'colors': {
+        'emotion_colors': {
+            'neutral': '&H00FFFF',
+            'happy': '&H00FF00',
+            'sad': '&H0000FF',
+            'angry': '&H0000FF',
+            'fear': '&H800080',
+            'surprise': '&H00A5FF',
+            'disgust': '&H008080'
+        },
+        'default_color': '&HFFFFFF'
+    }
+}
+
+def get(section, key, default=None):
+    """설정값 가져오기"""
+    return CONFIG.get(section, {}).get(key, default)
+
 class SubtitleConfig:
     def __init__(self, config_path="config.json"):
         self.config_path = config_path
@@ -70,6 +127,30 @@ class SubtitleConfig:
                     "soft": 30,
                     "normal": 40,
                     "loud": 50
+                }
+            },
+            "emotions": {
+                "mapping": {
+                    "sadness": "sad",
+                    "anger": "angry",
+                    "joy": "happy",
+                    "fear": "fear",
+                    "surprise": "surprise",
+                    "disgust": "disgust",
+                    "neutral": "neutral"
+                },
+                "weights": {
+                    "audio": 0.6,
+                    "text": 0.4
+                },
+                "emotion_weights": {
+                    "neutral": 0.9,    # 중립은 약간 낮게
+                    "happy": 1.2,      # 긍정 감정은 강화
+                    "sad": 1.0,        # 기본값
+                    "angry": 1.1,      # 강한 감정도 약간 강화
+                    "fear": 0.9,       # 공포는 약간 낮게
+                    "surprise": 1.0,   # 기본값
+                    "disgust": 0.8     # 혐오는 가장 낮게
                 }
             }
         }

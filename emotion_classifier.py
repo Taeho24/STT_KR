@@ -36,6 +36,7 @@ class EmotionResult:
     audio_score: float
 
 class EmotionClassifier:
+    """감정 분류 모델과 앙상블 처리를 담당하는 클래스"""
     def __init__(
         self,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
@@ -63,30 +64,21 @@ class EmotionClassifier:
             "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
         )
 
-        # config에서 감정 관련 설정 로드
+        # config에서 모든 설정 로드
         self.emotion_mapping = config.get('emotions', 'mapping')
-        self.emotion_weights = config.get('emotions', 'weights')
-        self.emotion_descriptions = config.get('emotions', 'descriptions')
-        
-        # config에서 가중치 가져오기
-        weights = config.get('model_weights', 'multimodal')
-        if weights:
-            self.weights = weights
-        else:
-            # 기본값 설정
-            self.weights = {
-                'audio': 0.6,
-                'text': 0.4
-            }
+        self.weights = config.get('emotions', 'weights')
+        self.emotion_weights = config.get('emotions', 'emotion_weights')
+        self.emotion_colors = config.get('colors', 'emotion_colors')
+        self.default_color = config.get('colors', 'default_color')
 
-        # 호환성을 위한 필드
+        # 가중치 설정
         self.audio_weight = self.weights['audio']
         self.text_weight = self.weights['text']
-        
+
         self._setup_memory_management()
         logging.info("Emotion classifier initialized successfully")
 
-        # 텍스트/오디오 모델 레이블 출력 추가
+        # 텍스트/오디오 모델 레이블 출력
         print("Text model labels:", self.text_model.config.id2label)
         print("Audio model labels:", self.audio_model.config.id2label)
 
@@ -249,9 +241,12 @@ class EmotionClassifier:
             text_score = text_scores.get(emotion, 0.0)
             audio_score = audio_scores.get(emotion, 0.1)  # 최소값 0.1 설정
             
+            # 감정별 가중치 적용
+            emotion_weight = self.emotion_weights.get(emotion, 1.0)
+            
             combined_scores[emotion] = (
-                text_score * self.text_weight +
-                audio_score * self.audio_weight
+                (text_score * self.text_weight +
+                 audio_score * self.audio_weight) * emotion_weight
             )
 
         # 최종 감정 선택
