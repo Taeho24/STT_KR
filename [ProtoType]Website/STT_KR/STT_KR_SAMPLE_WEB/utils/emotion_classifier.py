@@ -9,7 +9,6 @@ from transformers import (
 import librosa
 import logging
 import json
-import os
 from pathlib import Path
 from typing import List, Dict, Any
 from dataclasses import dataclass
@@ -41,12 +40,14 @@ class EmotionClassifier:
         self,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         batch_size: int = 8,
-        cache_dir: str = ".cache"
+        cache_dir: str = ".cache",
+        file_format: str = "srt",
     ):
         self.device = device
         self.batch_size = batch_size
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
+        self.file_format = file_format
         
         # 텍스트 감정 분석 모델 (RoBERTa 기반)
         self.text_model = AutoModelForSequenceClassification.from_pretrained(
@@ -68,8 +69,20 @@ class EmotionClassifier:
         self.emotion_mapping = config.get('emotions', 'mapping')
         self.weights = config.get('emotions', 'weights')
         self.emotion_weights = config.get('emotions', 'emotion_weights')
-        self.emotion_colors = config.get('colors', 'emotion_colors')
-        self.default_color = config.get('colors', 'default_color')
+
+        if file_format == "srt":    # '#RRGGBB' 형식
+            self.emotion_colors = config.get('hex_colors', 'emotion_colors')
+            self.default_color = config.get('hex_colors', 'default_color')
+        elif file_format == "ass":  # '&HBBGGRR' 형식
+            self.emotion_colors = config.get('ass_colors', 'emotion_colors')
+            self.default_color = config.get('ass_colors', 'default_color')
+        else:
+            print("file_format이 적절하지 않습니다.")
+            print("가능한 file_format: 'srt', 'ass'")
+            print(f"현재 file_format: {file_format}")
+            # 임의로 hex_colors 입력
+            self.emotion_colors = config.get('hex_colors', 'emotion_colors')
+            self.default_color = config.get('hex_colors', 'default_color')
 
         # 가중치 설정
         self.audio_weight = self.weights['audio']
@@ -305,11 +318,21 @@ class EmotionClassifier:
             json.dump(output, f, ensure_ascii=False, indent=2)
 
     @staticmethod
-    def get_emotion_color(emotion: str) -> str:
+    def get_hex_emotion_color(emotion: str) -> str:
         """감정별 색상 코드 반환"""
         # 디버그용 로깅 추가
-        emotion_colors = config.get('colors', 'emotion_colors')
-        default_color = config.get('colors', 'default_color', '&HFFFFFF')
+        emotion_colors = config.get('hex_colors', 'emotion_colors')
+        default_color = config.get('hex_colors', 'default_color', '#FFFFFF')
+        resolved_color = emotion_colors.get(emotion, default_color)
+        print(f"Debug - Emotion color resolution: {emotion} -> {resolved_color}")
+        return resolved_color  # 기본값은 흰색
+    
+    @staticmethod
+    def get_ass_emotion_color(emotion: str) -> str:
+        """감정별 색상 코드 반환"""
+        # 디버그용 로깅 추가
+        emotion_colors = config.get('ass_colors', 'emotion_colors')
+        default_color = config.get('ass_colors', 'default_color', '&HFFFFFF')
         resolved_color = emotion_colors.get(emotion, default_color)
         print(f"Debug - Emotion color resolution: {emotion} -> {resolved_color}")
         return resolved_color  # 기본값은 흰색
@@ -328,10 +351,16 @@ class EmotionClassifier:
             for segment, result in zip(segments, results):
                 segment['emotion'] = result.emotion
                 segment['confidence'] = result.confidence
-                segment['emotion_color'] = self.get_emotion_color(result.emotion)
                 segment['features'] = result.features
                 segment['text_score'] = result.text_score
                 segment['audio_score'] = result.audio_score
+
+                if self.file_format == 'srt':
+                    segment['emotion_color'] = self.get_hex_emotion_color(result.emotion)
+                elif self.file_format == 'ass':
+                    segment['emotion_color'] = self.get_ass_emotion_color(result.emotion)
+                else:
+                    segment['emotion_color'] = self.get_hex_emotion_color(result.emotion)
 
             # 최종 진행 상황 출력
             print(f"감정 분류 진행: {len(segments)}/{len(segments)}")

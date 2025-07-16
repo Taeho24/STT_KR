@@ -23,9 +23,10 @@ def generate_caption(request):
             default_font_size = int(request.POST.get("default_font_size", "12"))
             min_font_size = int(request.POST.get("min_font_size", "10"))
             max_font_size = int(request.POST.get("max_font_size", "14"))
-            highlight_color = request.POST.get("highlight_color", "#FFFF00")
+            hex_highlight_color = request.POST.get("highlight_color", "#FFFF00")
+            ass_highlight_color = config.hex_to_ass(hex_highlight_color)
 
-            emotion_colors = {
+            hex_emotion_colors = {
                 "neutral": request.POST.get("중립", "#FFFFFF"),
                 "happy": request.POST.get("행복", "#00FF00"),
                 "sad": request.POST.get("슬픔", "#0000FF"),
@@ -35,11 +36,23 @@ def generate_caption(request):
                 "disgust": request.POST.get("혐오", "#008080"),
             }
 
+            ass_emotion_colors = {
+                "neutral": config.hex_to_ass(hex_emotion_colors["neutral"]),
+                "happy": config.hex_to_ass(hex_emotion_colors["happy"]),
+                "sad": config.hex_to_ass(hex_emotion_colors["sad"]),
+                "angry": config.hex_to_ass(hex_emotion_colors["angry"]),
+                "fear": config.hex_to_ass(hex_emotion_colors["fear"]),
+                "surprise": config.hex_to_ass(hex_emotion_colors["surprise"]),
+                "disgust": config.hex_to_ass(hex_emotion_colors["disgust"]),
+            }
+
             config.set(default_font_size, 'font', 'default_size')
             config.set(min_font_size, 'font', 'min_size')
             config.set(max_font_size, 'font', 'max_size')
-            config.set(highlight_color, 'colors', 'highlight_color')
-            config.set(emotion_colors, 'colors', 'emotion_colors')
+            config.set(hex_highlight_color, 'hex_colors', 'highlight_color')
+            config.set(hex_emotion_colors, 'hex_colors', 'emotion_colors')
+            config.set(ass_highlight_color, 'ass_colors', 'highlight_color')
+            config.set(ass_emotion_colors, 'ass_colors', 'emotion_colors')
 
             # 오디오 처리
             generator = SubtitleGenerator(audio_path=audio_path)

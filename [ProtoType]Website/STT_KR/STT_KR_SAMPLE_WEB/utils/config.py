@@ -7,10 +7,10 @@ ROOT_DIR = Path(__file__).parent
 
 # 필요한 디렉토리 구조 설정
 DIRS = {
-    'assets': ROOT_DIR / 'assets',      # 입력 비디오 저장
-    'result': ROOT_DIR / 'result',      # 결과물 저장
-    'private': ROOT_DIR / 'private',    # 토큰 등 민감한 파일 저장
-    'cache': ROOT_DIR / '.cache'        # 캐시 파일 저장
+    "assets": ROOT_DIR / "assets",      # 입력 비디오 저장
+    "result": ROOT_DIR / "result",      # 결과물 저장
+    "private": ROOT_DIR / "private",    # 토큰 등 민감한 파일 저장
+    "cache": ROOT_DIR / ".cache"        # 캐시 파일 저장
 }
 
 # 디렉토리 생성
@@ -19,41 +19,54 @@ for dir_path in DIRS.values():
 
 # 설정값
 CONFIG = {
-    'paths': DIRS,
-    'emotions': {
-        'mapping': {
-            'happy': 'happy',
-            'sad': 'sad',
-            'angry': 'angry',
-            'fear': 'fear',
-            'surprise': 'surprise',
-            'disgust': 'disgust',
-            'neutral': 'neutral'
+    "paths": DIRS,
+    "emotions": {
+        "mapping": {
+            "happy": "happy",
+            "sad": "sad",
+            "angry": "angry",
+            "fear": "fear",
+            "surprise": "surprise",
+            "disgust": "disgust",
+            "neutral": "neutral"
         },
-        'weights': {'audio': 0.7, 'text': 0.3},
-        'emotion_weights': {
-            'neutral': 0.9,
-            'happy': 1.1,
-            'sad': 1.0,
-            'angry': 1.1,
-            'fear': 0.9,
-            'surprise': 1.0,
-            'disgust': 0.8
+        "weights": {"audio": 0.7, "text": 0.3},
+        "emotion_weights": {
+            "neutral": 0.9,
+            "happy": 1.1,
+            "sad": 1.0,
+            "angry": 1.1,
+            "fear": 0.9,
+            "surprise": 1.0,
+            "disgust": 0.8
         }
     },
-    'colors': {
-        "emotion_colors": {
-            "neutral": "#FFFFFF",    # 노란색
-            "happy": "#00FF00",      # 초록색
-            "sad": "#0000FF",        # 빨간색
-            "angry": "#FF0000",      # 빨간색
-            "fear": "#800080",       # 보라색
-            "surprise": "#00FFFF",   # 민트색
-            "disgust": "#008080",    # 청록색
-        },
-        "default_color": "#FFFFFF",  # 흰색
-        "highlight_color": "#FFFF00",   # 노란색
-    }
+    "hex_colors": {
+                "emotion_colors": {
+                    "neutral": "#FFFFFF",    # 노란색
+                    "happy": "#00FF00",      # 초록색
+                    "sad": "#0000FF",        # 파란색
+                    "angry": "#FF0000",      # 빨간색
+                    "fear": "#800080",       # 보라색
+                    "surprise": "#00FFFF",   # 민트색
+                    "disgust": "#008080",    # 청록색
+                },
+                "default_color": "#FFFFFF",  # 흰색
+                "highlight_color": "#FFFF00",   # 노란색
+            },
+            "ass_colors": {
+                "emotion_colors": {
+                    "neutral": "&HFFFFFF",    # 노란색
+                    "happy": "&H00FF00",      # 초록색
+                    "sad": "&HFF0000",        # 파란색
+                    "angry": "&H0000FF",      # 빨간색
+                    "fear": "&H080008",       # 보라색
+                    "surprise": "&HFFFF00",   # 민트색
+                    "disgust": "&H080800",    # 청록색
+                },
+                "default_color": "&HFFFFFF",  # 흰색
+                "highlight_color": "&H00FFFF",   # 노란색
+            },
 }
 
 def get(section, key, default=None):
@@ -90,11 +103,11 @@ class SubtitleConfig:
                     "text": 0.4
                 }
             },
-            "colors": {
+            "hex_colors": {
                 "emotion_colors": {
                     "neutral": "#FFFFFF",    # 노란색
                     "happy": "#00FF00",      # 초록색
-                    "sad": "#0000FF",        # 빨간색
+                    "sad": "#0000FF",        # 파란색
                     "angry": "#FF0000",      # 빨간색
                     "fear": "#800080",       # 보라색
                     "surprise": "#00FFFF",   # 민트색
@@ -102,6 +115,19 @@ class SubtitleConfig:
                 },
                 "default_color": "#FFFFFF",  # 흰색
                 "highlight_color": "#FFFF00",   # 노란색
+            },
+            "ass_colors": {
+                "emotion_colors": {
+                    "neutral": "&HFFFFFF",    # 노란색
+                    "happy": "&H00FF00",      # 초록색
+                    "sad": "&HFF0000",        # 파란색
+                    "angry": "&H0000FF",      # 빨간색
+                    "fear": "&H080008",       # 보라색
+                    "surprise": "&HFFFF00",   # 민트색
+                    "disgust": "&H080800",    # 청록색
+                },
+                "default_color": "&HFFFFFF",  # 흰색
+                "highlight_color": "&H00FFFF",   # 노란색
             },
             "spacing": {
                 "speech_rate": {
@@ -152,27 +178,27 @@ class SubtitleConfig:
 
         def validate_color_code(code):
             """ASS 색상 코드 유효성 검사"""
-            if not code.startswith('&H'):
+            if not code.startswith("#"):
                 return False
             try:
                 # AABBGGRR 형식 검증
-                int(code[2:], 16)
+                int(code[1:], 16)
                 return len(code) == 8
             except ValueError:
                 return False
 
         # 감정 색상 유효성 검사
-        for emotion, color in self.config['colors']['emotion_colors'].items():
+        for emotion, color in self.config["colors"]["emotion_colors"].items():
             if not validate_color_code(color):
                 print(f"Warning: Invalid color code for {emotion}: {color}")
                 # 기본 색상으로 대체
-                self.config['colors']['emotion_colors'][emotion] = '&HFFFFFF'
+                self.config["colors"]["emotion_colors"][emotion] = "#FFFFFF"
 
     def load_config(self):
         """설정 파일 로드"""
         try:
             if os.path.exists(self.config_path):
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, "r", encoding="utf-8") as f:
                     loaded_config = json.load(f)
                 # 기존 설정과 병합
                 self._merge_config(loaded_config)
@@ -183,7 +209,7 @@ class SubtitleConfig:
     def save_config(self):
         """현재 설정을 파일로 저장"""
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
             print(f"설정을 저장했습니다: {self.config_path}")
         except Exception as e:
@@ -220,6 +246,19 @@ class SubtitleConfig:
         
         target[keys[-1]] = value
         return True
+    
+    def hex_to_ass(color_hex):
+        """
+        #RRGGBB → &HBBGGRR 형식으로 변환 (ASS 자막용)
+        """
+        if not color_hex.startswith('#') or len(color_hex) != 7:
+            raise ValueError("색상 코드는 #RRGGBB 형식이어야 합니다.")
+
+        rr = color_hex[1:3]
+        gg = color_hex[3:5]
+        bb = color_hex[5:7]
+
+        return f"&H{bb}{gg}{rr}"
 
 # 전역 설정 인스턴스
 config = SubtitleConfig()

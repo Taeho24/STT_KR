@@ -70,17 +70,7 @@ class SubtitleGenerator:
         
         return segments
 
-    def _process_video(self):
-        # ✅ 미리 감정 분류 모델 로드 시작
-        print("MIT/AST 및 RoBERTa 감정 분류 모델 로드 중...")
-        
-        emotion_classifier = EmotionClassifier(
-            device=self.device,
-            batch_size=self.batch_size,
-            cache_dir=os.path.join(self.output_path, ".cache")
-        )
-        print("감정 분류 모델 로드 완료")
-
+    def _process_video(self, file_format: str = "srt"):
         # WhisperX 모델 로드 부분 수정
         print("WhisperX 모델 로드 중...")
         model = whisperx.load_model(
@@ -132,31 +122,35 @@ class SubtitleGenerator:
         audio_analyzer = AudioAnalyzer(sample_rate=16000)
         segments = audio_analyzer.analyze_voice_type(segments, audio)
 
-        # 감정 분류기 초기화 (중복 제거)
-        print("감정 분류 모델 로드 중...")
-        emotion_classifier = EmotionClassifier(
-            device=self.device,
-            batch_size=self.batch_size,
-            cache_dir=os.path.join(self.output_path, ".cache")
-        )
-        print("감정 분류 모델 로드 완료")
+        if language_code == 'en':
+            # 감정 분류기 초기화 (중복 제거)
+            print("감정 분류 모델 로드 중...")
+            emotion_classifier = EmotionClassifier(
+                device=self.device,
+                batch_size=self.batch_size,
+                cache_dir=os.path.join(self.output_path, ".cache"),
+                file_format=file_format
+            )
+            print("감정 분류 모델 로드 완료")
 
-        # 감정 분석 배치 처리
-        print("감정 분석 중...")
-        segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
+            # 감정 분석 배치 처리
+            print("감정 분석 중...")
+            segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
 
-        # 감정 분석 통계 출력
-        emotion_stats = {}
-        for segment in segments:
-            emotion = segment.get('emotion', 'unknown')
-            emotion_stats[emotion] = emotion_stats.get(emotion, 0) + 1
+            # 감정 분석 통계 출력
+            emotion_stats = {}
+            for segment in segments:
+                emotion = segment.get('emotion', 'unknown')
+                emotion_stats[emotion] = emotion_stats.get(emotion, 0) + 1
 
-        print("\n===== 감정 분석 통계 =====")
-        total_segments = len(segments)
-        for emotion, count in sorted(emotion_stats.items(), key=lambda x: x[1], reverse=True):
-            percentage = (count / total_segments) * 100
-            print(f" - {emotion}: {count}개 세그먼트 ({percentage:.1f}%)")
-        print("=======================\n")
+            print("\n===== 감정 분석 통계 =====")
+            total_segments = len(segments)
+            for emotion, count in sorted(emotion_stats.items(), key=lambda x: x[1], reverse=True):
+                percentage = (count / total_segments) * 100
+                print(f" - {emotion}: {count}개 세그먼트 ({percentage:.1f}%)")
+            print("=======================\n")
+        else:
+            print(f"인식된 언어가 'en'이 아닌 '{language_code}'이기 때문에 감정 분석 과정을 생략합니다.")
 
         return segments
 
