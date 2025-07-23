@@ -9,9 +9,9 @@ class SRTSubtitleGenerator:
         self.default_font_size = config.get('font', 'default_size')
         self.whispering_font_size = config.get('font', 'min_size')
         self.shouting_font_size = config.get('font', 'max_size')
-        self.emotion_colors = config.get('colors', 'emotion_colors')
-        self.default_color = config.get('colors', 'default_color')
-        self.highlight_color = config.get('colors', 'highlight_color')
+        self.emotion_colors = config.get('hex_colors', 'emotion_colors')
+        self.default_color = config.get('hex_colors', 'default_color')
+        self.highlight_color = config.get('hex_colors', 'highlight_color')
 
     def split_segment_by_max_words(self, segments):
         new_segments = []
