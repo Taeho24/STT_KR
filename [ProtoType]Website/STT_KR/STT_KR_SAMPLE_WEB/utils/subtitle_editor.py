@@ -20,11 +20,19 @@ class SubtitleEditor:
             self.subtitle_path = os.path.join(self.output_path, f"subtitle.srt")
 
     def update_speaker_name(self, current_name:str, new_name:str) -> str:
+        """
+        기존 형식: [SPEAKER_00]
+        
+        [입력 예시] current_name = "SPEAKER_00"
+        """
+
+        # 자막 파일 불러오기
         with open(self.subtitle_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
         content = content.replace(f'[{current_name}]', f'[{new_name}]')
 
+        # 자막 파일 덮어쓰기
         with open(self.subtitle_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
@@ -127,8 +135,6 @@ class SubtitleEditor:
 
         return content
     
-    # TODO: hex color 형태로 입력받기 위해 함수 내에서 hex_to_ass 변환과정 추가
-    # TODO: config 값 업데이트 과정 추가
     def update_highlight_color(self, new_highlight_color:str) -> str:
         """
         색상 코드는 #RRGGBB 형태로 입력
@@ -172,13 +178,15 @@ class SubtitleEditor:
         return content
     
     def update_font_size(self, new_min_size:int, new_default_size:int, new_max_size:int) -> str:
+        """폰트 크기는 px 단위"""
+
         if config.validate_font_size(new_min_size, new_default_size, new_max_size):
             # 기존 config 값 불러오기
             cur_min_size = config.get('font', 'min_size')
             cur_default_size = config.get('font', 'default_size')
             cur_max_size = config.get('font', 'max_size')
 
-            # 자막 파일 내용 수정
+            # 자막 파일 불러오기
             with open(self.subtitle_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
@@ -186,6 +194,7 @@ class SubtitleEditor:
                             .replace(f'size={cur_default_size}px', f'size={new_default_size}px')\
                             .replace(f'size={cur_max_size}px', f'size={cur_max_size}px')
 
+            # 자막 파일 덮어쓰기
             with open(self.subtitle_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             
@@ -197,4 +206,9 @@ class SubtitleEditor:
             return content
     
     def update_file_format(self, cur_file_format:str, new_file_format:str) -> str:
+        """
+        사용 가능한 파일 형식: srt, ass
+
+        [입력 예시] "srt", "ass"
+        """
         pass
