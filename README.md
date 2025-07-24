@@ -18,8 +18,8 @@
 
 ```bash
 # 1. 저장소 복제
-git clone https://github.com/yourusername/EmotionSync.git
-cd EmotionSync
+git clone https://github.com/Taeho24/STT_KR.git
+cd STT_KR
 
 # 2. 가상환경 생성 및 활성화
 python -m venv venv
@@ -42,7 +42,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ### 기본 사용
 ```bash
-python main.py "input_video.mp4" --batch_size 8
+python manage.py runserver
 ```
 
 ### 고급 옵션
