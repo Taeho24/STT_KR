@@ -45,16 +45,6 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 python manage.py runserver
 ```
 
-### 고급 옵션
-```bash
-python main.py "input_video.mp4" \
-    --output_dir "result" \
-    --batch_size 8 \
-    --device "cuda" \
-    --compute_type "float16" \
-    --add_to_video
-```
-
 # 활용
 
 # Contact
