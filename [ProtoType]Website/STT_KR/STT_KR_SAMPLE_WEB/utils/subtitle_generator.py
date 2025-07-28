@@ -1,6 +1,7 @@
 import os
 import whisperx
 import torch
+import json
 
 # 상대 경로 모듈 가져오기
 from .audio_analyzer import AudioAnalyzer
@@ -20,6 +21,7 @@ class SubtitleGenerator:
         self.audio_path = audio_path
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
         self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'results')
+        self.json_path = os.path.join(self.output_path, f"segments.json")
         self.srt_output_path = os.path.join(self.output_path, f"subtitle.srt")
         self.ass_output_path = os.path.join(self.output_path, f"subtitle.ass")
 
@@ -70,7 +72,7 @@ class SubtitleGenerator:
         
         return segments
 
-    def _process_video(self, file_format: str = "srt"):
+    def _process_video(self, file_format:str = "srt"):
         # WhisperX 모델 로드 부분 수정
         print("WhisperX 모델 로드 중...")
         model = whisperx.load_model(
@@ -151,13 +153,26 @@ class SubtitleGenerator:
             print("=======================\n")
         else:
             print(f"인식된 언어가 'en'이 아닌 '{language_code}'이기 때문에 감정 분석 과정을 생략합니다.")
+        
+        self._segments_to_json(segments)
 
+        return segments
+    
+    def _segments_to_json(self, segments:dict):
+        with open(self.json_path, "w") as f:
+            json.dump(segments, f)
+    
+    def _load_segments(self):
+        with open(self.json_path, "r") as f:
+            segments = json.load(f)
+        
         return segments
 
     def generate_srt_subtitle(self):
         srt_subtitle_generator = SRTSubtitleGenerator()
 
         segments = self._process_video()
+
         srt_subtitle_generator.segments_to_srt(segments, self.srt_output_path)
 
         with open(self.srt_output_path, 'r', encoding='utf-8') as f:
