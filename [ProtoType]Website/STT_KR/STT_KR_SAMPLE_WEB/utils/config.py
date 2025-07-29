@@ -189,9 +189,9 @@ class SubtitleConfig:
                 # 기본 색상으로 대체
                 self.config["ass_colors"]["emotion_colors"][emotion] = "&HFFFFFF"
 
-    def validate_color_code(code):
+    def validate_color_code(self, code):
         """색상 코드 유효성 검사"""
-        if not code.startswith("#", "&H"):
+        if not code.startswith(("#", "&H")):
             return False
         try:
             if code.startswith("#"):
