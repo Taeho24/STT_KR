@@ -37,7 +37,9 @@
             <section class="preview-section" id="preview-section">
                 <h2 class="preview-title">동영상 미리보기</h2>
                 <div class="video-container">
-                    <video class="video-preview" id="video-preview" controls></video>
+                    <video class="video-preview" id="video-preview" controls>
+                        <track id="subtitleTrack" kind="subtitles" srclang="ko" label="Korean">
+                    </video>
                 </div>
 
                 <!-- 자막 설정 옵션 -->
@@ -94,6 +96,7 @@
                 </div>
 
                 <div class="preview-controls">
+                    <button class="preview-btn" id="preview-btn">미리보기</button>
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
                 </div>
@@ -158,6 +161,7 @@
         const selectFileBtn = document.getElementById('select-file-btn');
         const previewSection = document.getElementById('preview-section');
         const videoPreview = document.getElementById('video-preview');
+        const previewBtn = document.getElementById('preview-btn');
         const generateBtn = document.getElementById('generate-btn');
         const cancelBtn = document.getElementById('cancel-btn');
         const captionSection = document.getElementById('caption-section');
@@ -323,6 +327,94 @@
             if (confirm('하이라이트 색상을 기본값으로 복원하시겠습니까?')) {
                 highlightColor.value = '#FFFF00';
             }
+        });
+
+        function generatePreviewVTT() {
+            // 설정 값 가져오기
+            const defaultSize = defaultFontSize.value;
+            const minSize = minFontSize.value;
+            const maxSize = maxFontSize.value;
+            const highlight = highlightColor.value;
+            const emotionColors = getEmotionColors();
+
+            // VTT 내부에 포함할 STYLE 블록 생성
+            const styleBlock = `STYLE
+                ::cue(.default-size) { font-size: ${defaultSize}px; }
+                ::cue(.min-size) { font-size: ${minSize}px; }
+                ::cue(.max-size) { font-size: ${maxSize}px; }
+                ::cue(.highlight) { color: ${highlight}; }
+                ::cue(.neutral) { color: ${emotionColors.neutral}; }
+                ::cue(.happy) { color: ${emotionColors.happy}; }
+                ::cue(.sad) { color: ${emotionColors.sad}; }
+                ::cue(.angry) { color: ${emotionColors.angry}; }
+                ::cue(.fear) { color: ${emotionColors.fear}; }
+                ::cue(.surprise) { color: ${emotionColors.surprise}; }
+                ::cue(.disgust) { color: ${emotionColors.disgust}; }
+                `;
+
+            // 자막 내용 생성
+            const cueBlock = `00:00:01.000 --> 00:00:03.000
+<c.default-size.neutral>기본 폰트 크기가 적용된 자막입니다.</c>
+
+00:00:03.000 --> 00:00:05.000
+<c.min-size.neutral>최소 폰트 크기가 적용된 자막입니다.</c>
+
+00:00:05.000 --> 00:00:07.000
+<c.max-size.neutral>최대 폰트 크기가 적용된 자막입니다.</c>
+
+00:00:07.000 --> 00:00:09.000
+<c.default-size.highlight>하이라이트 색상이 적용된 자막입니다.</c>
+
+00:00:09.000 --> 00:00:11.000
+<c.default-size.happy>행복 감정 색상이 적용된 자막입니다.</c>
+
+00:00:11.000 --> 00:00:13.000
+<c.default-size.sad>슬픔 감정 색상이 적용된 자막입니다.</c>
+
+00:00:13.000 --> 00:00:15.000
+<c.default-size.angry>분노 감정 색상이 적용된 자막입니다.</c>
+
+00:00:15.000 --> 00:00:17.000
+<c.default-size.fear>공포 감정 색상이 적용된 자막입니다.</c>
+
+00:00:17.000 --> 00:00:19.000
+<c.default-size.surprise>놀람 감정 색상이 적용된 자막입니다.</c>
+
+00:00:19.000 --> 00:00:21.000
+<c.default-size.disgust>혐오 감정 색상이 적용된 자막입니다.</c>`;
+
+            // 4. WEBVTT 헤더, STYLE 블록, Cue 블록을 합쳐서 최종 VTT 콘텐츠 반환
+            return `WEBVTT\n${styleBlock}\n${cueBlock}`;
+        }
+
+        // 미리보기 버튼 클릭 시
+        previewBtn.addEventListener('click', () => {
+            const video = videoPreview;
+
+            // 이전 자막 트랙이 있다면 제거
+            const existingTrack = document.getElementById('subtitleTrack');
+            if (existingTrack) {
+                existingTrack.remove();
+            }
+
+            // 새로운 VTT 데이터와 Blob URL 생성
+            const vttData = generatePreviewVTT();
+            const vttBlob = new Blob([vttData], { type: 'text/vtt' });
+            const vttUrl = URL.createObjectURL(vttBlob);
+
+            // 새로운 <track> 요소를 생성하고 속성 설정
+            const newTrack = document.createElement('track');
+            newTrack.id = 'subtitleTrack';
+            newTrack.kind = 'subtitles';
+            newTrack.label = 'Korean';
+            newTrack.srclang = 'ko';
+            newTrack.src = vttUrl;
+
+            // 새로운 트랙을 video 요소에 추가
+            video.appendChild(newTrack);
+
+            // 새로 추가된 트랙을 활성화(showing).
+            newTrack.track.mode = 'showing';
         });
 
         // 자막 생성 버튼 클릭 시
