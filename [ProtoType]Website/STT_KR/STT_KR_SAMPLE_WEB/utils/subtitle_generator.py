@@ -12,7 +12,7 @@ from django.conf import settings
 
 class SubtitleGenerator:
     def __init__(
-            self, audio_path,
+            self, audio_path=os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'assets', 'extracted.wav'),
             max_words=10,
             device="cuda" if torch.cuda.is_available() else "cpu",
             compute_type="float16" if torch.cuda.is_available() else "float32",
@@ -72,7 +72,7 @@ class SubtitleGenerator:
         
         return segments
 
-    def _process_video(self, file_format:str = "srt"):
+    def process_video(self, file_format:str = "srt"):
         # WhisperX 모델 로드 부분 수정
         print("WhisperX 모델 로드 중...")
         model = whisperx.load_model(
@@ -171,9 +171,12 @@ class SubtitleGenerator:
     def generate_srt_subtitle(self):
         srt_subtitle_generator = SRTSubtitleGenerator()
 
-        segments = self._process_video()
+        segments = self._load_segments()
 
         srt_subtitle_generator.segments_to_srt(segments, self.srt_output_path)
 
         with open(self.srt_output_path, 'r', encoding='utf-8') as f:
             return f.read()
+    
+    def generate_ass_subtitle(self):
+        pass

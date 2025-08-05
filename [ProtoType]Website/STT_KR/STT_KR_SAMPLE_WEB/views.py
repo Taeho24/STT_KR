@@ -56,6 +56,7 @@ def generate_caption(request):
 
             # 오디오 처리
             generator = SubtitleGenerator(audio_path=audio_path)
+            generator.process_video()
             srt_text = generator.generate_srt_subtitle()
 
             return HttpResponse(srt_text, content_type="text/plain")
