@@ -268,7 +268,7 @@ class SubtitleConfig:
         """
         #RRGGBB → &HBBGGRR 형식으로 변환
         """
-        if not color_hex.startswith('#') or self.validate_color_code(color_hex):
+        if not color_hex.startswith('#') or not self.validate_color_code(color_hex):
             raise ValueError("색상 코드는 #RRGGBB 형식이어야 합니다.")
 
         rr = color_hex[1:3]
