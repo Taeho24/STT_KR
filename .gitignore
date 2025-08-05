@@ -1,6 +1,7 @@
 # Development
 \[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/hf_token.txt
 \[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/subtitle.srt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/segments.json
 \[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/assets/*.wav
 emotion_classification.log
 
