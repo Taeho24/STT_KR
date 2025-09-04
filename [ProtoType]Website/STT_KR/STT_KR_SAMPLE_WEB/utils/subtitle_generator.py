@@ -136,16 +136,9 @@ class SubtitleGenerator:
         
         return segments
     
-    def modify_character_name(self, names:list, file_format:str = "srt"):
-        if file_format == "srt":
-            with open(self.srt_output_path, 'r', encoding='utf-8') as f:
-                subtitle = f.read()
-        elif file_format == "ass":
-            with open(self.ass_output_path, 'r', encoding='utf-8') as f:
-                subtitle = f.read()
-        else:
-            print("file format이 올바르지 않습니다.(srt, ass)")
-            return
+    def modify_character_name(self, names: list):
+        segments = self._load_segments()
+        full_text = " ".join([s['text'] for s in segments])
 
         response = self.model_cache.client.models.generate_content(
             model="gemini-2.5-flash",
@@ -162,7 +155,7 @@ class SubtitleGenerator:
 
             **Input:**
             - **Correct Character Names (`names`):** {names}
-            - **Subtitle Text (`subtitle`):** {subtitle}
+            - **Subtitle Text (`subtitle`):** {full_text}
 
             **Example Output Format (for `names=["박지훈"]` and a subtitle containing "박지후를 찾으세요?"):**
             {{
@@ -170,25 +163,24 @@ class SubtitleGenerator:
             }}
             """
         )
-        
+
         try:
             modifications = json.loads(response.text)
-        except json.JSONDecodeError:
-            print("API 응답이 유효한 JSON 형식이 아닙니다.")
+        except (json.JSONDecodeError, AttributeError):
+            print("API 응답이 유효한 JSON 형식이 아니거나 응답 텍스트가 없습니다.")
             return
 
-        for modified_text, misrecognized_text in modifications.items():
-            subtitle = subtitle.replace(misrecognized_text, modified_text)
+        for segment in segments:
+            current_text = segment['text']
+            for modified_text, misrecognized_text in modifications.items():
+                if misrecognized_text in current_text:
+                    segment['text'] = current_text.replace(misrecognized_text, modified_text)
+                    current_text = segment['text']
+
+        # 수정된 세그먼트 데이터를 재사용된 함수를 통해 저장
+        self._segments_to_json(segments)
         
-        if file_format == "srt":
-            with open(self.srt_output_path, 'w', encoding='utf-8') as f:
-                f.write(subtitle)
-        elif file_format == "ass":
-            with open(self.ass_output_path, 'w', encoding='utf-8') as f:
-                f.write(subtitle)
-        else:
-            print("file format이 올바르지 않습니다.(srt, ass)")
-            return
+        print("음성 인식 결과에서 등장인물 이름 수정 완료.")
 
     def generate_srt_subtitle(self):
         srt_subtitle_generator = SRTSubtitleGenerator()
