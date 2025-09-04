@@ -7,13 +7,14 @@ import json
 from .audio_analyzer import AudioAnalyzer
 from .emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
 from .srt_subtitle_generator import SRTSubtitleGenerator
-from .utils import read_auth_token, split_segment_by_max_words
+from .utils import split_segment_by_max_words
 from django.conf import settings
+from .model_cache import ModelCache
 
 class SubtitleGenerator:
     def __init__(
             self, audio_path=os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'assets', 'extracted.wav'),
-            max_words=10,
+            max_words=10, 
             device="cuda" if torch.cuda.is_available() else "cpu",
             compute_type="float16" if torch.cuda.is_available() else "float32",
             batch_size=16):
@@ -27,8 +28,6 @@ class SubtitleGenerator:
 
         os.makedirs(self.output_path, exist_ok=True)
 
-        self.auth_token = read_auth_token(self.hf_token_path)
-
         self.max_words = max_words
         self.device = device
         self.compute_type = compute_type
@@ -38,48 +37,17 @@ class SubtitleGenerator:
         else:
             self.batch_size = batch_size
 
+        self.model_cache = ModelCache()
+
         # 파일 존재 여부 확인 추가
         if not os.path.exists(self.audio_path):
             raise FileNotFoundError(f"입력 오디오 파일을 찾을 수 없습니다: {self.audio_path}\n"
                                 f"현재 작업 디렉토리: {os.getcwd()}\n"
                                 f"입력된 경로: {self.audio_path}")
 
-    def _process_extra_video(self):
-        """추가 오디오 처리 (음성 인식 및 세그먼트 분할)"""
-        print(f"\n추가 오디오 처리 시작: {self.audio_path}")
-        
-        vad_options = {"use_vad": True}
-        model = whisperx.load_model("large-v2", self.device, compute_type=self.compute_type, vad_options=vad_options)
-        
-        print("오디오 로딩 중...")
-        audio = whisperx.load_audio(self.audio_path)
-        
-        print("음성 인식(STT) 수행 중...")
-        result = model.transcribe(audio, batch_size=16)
-        language_code = result["language"]
-        print(f"감지된 언어: {language_code}")
-        
-        print("음성 정렬 수행 중...")
-        model_a, metadata = whisperx.load_align_model(language_code=language_code, device=self.device)
-        result = whisperx.align(result["segments"], model_a, metadata, audio, self.device, return_char_alignments=False)
-        
-        segments = split_segment_by_max_words(result["segments"], 10)
-        segments = [s for s in segments if (s["end"] - s["start"]) > 0.7]
-        print(f"분할된 세그먼트 수: {len(segments)}")
-        
-        audio_analyzer = AudioAnalyzer(sample_rate=16000)
-        segments = audio_analyzer.analyze_audio_features(segments, audio)
-        
-        return segments
-
     def process_video(self, file_format:str = "srt"):
-        # WhisperX 모델 로드 부분 수정
-        print("WhisperX 모델 로드 중...")
-        model = whisperx.load_model(
-            "large-v2",
-            self.device,
-            compute_type=self.compute_type
-        )
+        # WhisperX 모델 불러오기
+        model = self.model_cache.whisper_model
 
         print(f"오디오 추출 중: {self.audio_path}")
         audio = whisperx.load_audio(self.audio_path)
@@ -99,7 +67,7 @@ class SubtitleGenerator:
 
         print("화자 분리 수행 중...")
         try:
-            diarize_model = whisperx.DiarizationPipeline(model_name="pyannote/speaker-diarization-3.0", use_auth_token=self.auth_token, device=self.device)
+            diarize_model = self.model_cache.diarize_model
             diarize_segments = diarize_model(audio)
             result = whisperx.assign_word_speakers(diarize_segments, result)
         except Exception as e:
@@ -167,6 +135,16 @@ class SubtitleGenerator:
             segments = json.load(f)
         
         return segments
+    
+    def adjust_character_name(self, names:list):
+        with open(self.srt_output_path, 'r', encoding='utf-8') as f:
+            subtitle = f.read()
+
+        # TODO: 주어진 자막 내의 잘못 인식된 이름들 수정하는 프롬프트 작성(반환 형식: 딕셔너리)
+        response = self.model_cache.client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"{subtitle}{names}"
+        )
 
     def generate_srt_subtitle(self):
         srt_subtitle_generator = SRTSubtitleGenerator()
