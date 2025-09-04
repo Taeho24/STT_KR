@@ -136,15 +136,59 @@ class SubtitleGenerator:
         
         return segments
     
-    def adjust_character_name(self, names:list):
-        with open(self.srt_output_path, 'r', encoding='utf-8') as f:
-            subtitle = f.read()
+    def modify_character_name(self, names:list, file_format:str = "srt"):
+        if file_format == "srt":
+            with open(self.srt_output_path, 'r', encoding='utf-8') as f:
+                subtitle = f.read()
+        elif file_format == "ass":
+            with open(self.ass_output_path, 'r', encoding='utf-8') as f:
+                subtitle = f.read()
+        else:
+            print("file format이 올바르지 않습니다.(srt, ass)")
+            return
 
-        # TODO: 주어진 자막 내의 잘못 인식된 이름들 수정하는 프롬프트 작성(반환 형식: 딕셔너리)
         response = self.model_cache.client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=f"{subtitle}{names}"
+            contents=f"""
+            **Identify and Map Misidentified Character Names in Subtitles for Direct Replacement**
+
+            **Instructions:**
+            - Analyze the provided list of correct character names and the corresponding subtitle text.
+            - Identify instances where a character's name is likely misrecognized in the subtitle.
+            - **Strictly** identify the exact misrecognized text and its corresponding corrected form. The output should facilitate a direct `replace()` operation.
+            - Your response must be a JSON-formatted string, specifically a dictionary where:
+                - **Keys** are the full, correctly spelled text you want to use for replacement.
+                - **Values** are the exact misidentified text strings found in the subtitle that should be replaced.
+
+            **Input:**
+            - **Correct Character Names (`names`):** {names}
+            - **Subtitle Text (`subtitle`):** {subtitle}
+
+            **Example Output Format (for `names=["박지훈"]` and a subtitle containing "박지후를 찾으세요?"):**
+            {{
+            "박지훈을": "박지후를"
+            }}
+            """
         )
+        
+        try:
+            modifications = json.loads(response.text)
+        except json.JSONDecodeError:
+            print("API 응답이 유효한 JSON 형식이 아닙니다.")
+            return
+
+        for modified_text, misrecognized_text in modifications.items():
+            subtitle = subtitle.replace(misrecognized_text, modified_text)
+        
+        if file_format == "srt":
+            with open(self.srt_output_path, 'w', encoding='utf-8') as f:
+                f.write(subtitle)
+        elif file_format == "ass":
+            with open(self.ass_output_path, 'w', encoding='utf-8') as f:
+                f.write(subtitle)
+        else:
+            print("file format이 올바르지 않습니다.(srt, ass)")
+            return
 
     def generate_srt_subtitle(self):
         srt_subtitle_generator = SRTSubtitleGenerator()
