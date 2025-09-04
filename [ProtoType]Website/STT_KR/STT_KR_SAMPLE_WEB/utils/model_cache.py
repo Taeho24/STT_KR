@@ -14,7 +14,7 @@ class ModelCache:
         return cls._instance
 
     @classmethod
-    def load_models(cls, device, compute_type, auth_token):
+    def load_models(cls, device, compute_type, auth_token, gemini_api_key):
         print("WhisperX 모델 로드...")
         cls.whisper_model = whisperx.load_model("large-v2", device, compute_type=compute_type)
 
@@ -32,4 +32,4 @@ class ModelCache:
         
         print("모든 모델 로딩 완료")
 
-        cls.client = genai.Client()
+        cls.client = genai.Client(api_key=gemini_api_key)

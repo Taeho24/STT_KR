@@ -10,10 +10,23 @@ def read_auth_token(file_path):
             token = f.read().strip()
         return token
     except FileNotFoundError:
-        print(f"경고: 토큰 파일을 찾을 수 없습니다: {file_path}")
+        print(f"경고: 파일을 찾을 수 없습니다: {file_path}")
         return None
     except Exception as e:
-        print(f"토큰 파일 읽기 오류: {e}")
+        print(f"파일 읽기 오류: {e}")
+        return None
+
+def read_gemini_api_key(file_path):
+    """Gemini API key 파일 읽기"""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            api_key = f.read().strip()
+        return api_key
+    except FileNotFoundError:
+        print(f"경고: 파일을 찾을 수 없습니다: {file_path}")
+        return None
+    except Exception as e:
+        print(f"파일 읽기 오류: {e}")
         return None
 
 def split_segment_by_max_words(segments, max_words):
