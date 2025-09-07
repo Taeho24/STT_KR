@@ -68,7 +68,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'STT_KR_SAMPLE_WEB'
+    'STT_KR_SAMPLE_WEB.apps.SttKrSampleWebConfig'
 ]
 
 MIDDLEWARE = [

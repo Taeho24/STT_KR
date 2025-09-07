@@ -1,153 +1,196 @@
+import os
 import whisperx
 import torch
-import numpy as np
-import os
+import json
+
+# 상대 경로 모듈 가져오기
+from .audio_analyzer import AudioAnalyzer
+from .emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
+from .srt_subtitle_generator import SRTSubtitleGenerator
+from .utils import split_segment_by_max_words
 from django.conf import settings
+from .model_cache import ModelCache
 
 class SubtitleGenerator:
-    def __init__(self, audio_path, 
-                 font_color="yellow",
-                 default_font_size=12,
-                 font_size_weight=0.2,  # 폰트 크기 가중치 (속삭임 = 기본 * 0.8, 고함 = 기본 * 1.2)
-                 max_words=10,  # 자막 세그먼트 당 최대 단어 개수 (최대 10개 단어 단위로 나누어 자막 생성)
-                 device="cuda", # GPU 사용
-                 batch_size=16,
-                 compute_type="float16"):
-        
+    def __init__(
+            self, audio_path=os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'assets', 'extracted.wav'),
+            max_words=10, 
+            device="cuda" if torch.cuda.is_available() else "cpu",
+            compute_type="float16" if torch.cuda.is_available() else "float32",
+            batch_size=16):
+        # 경로 설정
         self.audio_path = audio_path
-        self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'results', 'subtitle.srt')
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
-        
-        self.font_color = font_color
-        self.default_font_size = default_font_size
-        self.whispering_font_size = int(default_font_size * (1-font_size_weight))
-        self.shouting_font_size = int(default_font_size * (1+font_size_weight))
+        self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'results')
+        self.json_path = os.path.join(self.output_path, f"segments.json")
+        self.srt_output_path = os.path.join(self.output_path, f"subtitle.srt")
+        self.ass_output_path = os.path.join(self.output_path, f"subtitle.ass")
+
+        os.makedirs(self.output_path, exist_ok=True)
+
         self.max_words = max_words
         self.device = device
-        self.batch_size = batch_size
         self.compute_type = compute_type
+        # CPU 모드에서는 더 작은 배치 크기 사용
+        if self.device == "cpu":
+            self.batch_size = min(batch_size, 4)
+        else:
+            self.batch_size = batch_size
 
-        self.audio = whisperx.load_audio(self.audio_path)
-        self.auth_token = self.read_auth_token()
+        self.model_cache = ModelCache()
 
-    # STT_KR_SAMPLE_WEB/static/private/hf_token.txt에서 hugging face 읽기 토큰 불러오기
-    def read_auth_token(self):
+        # 파일 존재 여부 확인 추가
+        if not os.path.exists(self.audio_path):
+            raise FileNotFoundError(f"입력 오디오 파일을 찾을 수 없습니다: {self.audio_path}\n"
+                                f"현재 작업 디렉토리: {os.getcwd()}\n"
+                                f"입력된 경로: {self.audio_path}")
+
+    def process_video(self, file_format:str = "srt"):
+        # WhisperX 모델 불러오기
+        model = self.model_cache.whisper_model
+
+        print(f"오디오 추출 중: {self.audio_path}")
+        audio = whisperx.load_audio(self.audio_path)
+
+        print("음성 인식(STT) 수행 중...")
+        result = model.transcribe(
+            audio,
+            batch_size=self.batch_size
+        )
+
+        # language_code 추출 추가
+        language_code = result["language"]
+
+        print("음성 정렬 수행 중...")
+        model_a, metadata = whisperx.load_align_model(language_code=language_code, device=self.device)
+        result = whisperx.align(result["segments"], model_a, metadata, audio, self.device, return_char_alignments=False)
+
+        print("화자 분리 수행 중...")
         try:
-            with open(self.hf_token_path, "r") as file:
-                return file.read().strip()
+            diarize_model = self.model_cache.diarize_model
+            diarize_segments = diarize_model(audio)
+            result = whisperx.assign_word_speakers(diarize_segments, result)
         except Exception as e:
-            print(f"토큰 파일 오류: {e}")
-            return None
-
-    def split_segment_by_max_words(self, segments):
-        new_segments = []
-        for segment in segments:
-            words = segment.get("words", [])
-            if len(words) > self.max_words:
-                num_chunks = len(words) // self.max_words + (1 if len(words) % self.max_words > 0 else 0)
-                words_per_chunk = len(words) // num_chunks
-                for i in range(num_chunks):
-                    chunk = words[i * words_per_chunk: (i + 1) * words_per_chunk if i != num_chunks - 1 else len(words)]
-                    if chunk:
-                        new_segments.append({
-                            "start": chunk[0]["start"],
-                            "end": chunk[-1]["end"],
-                            "text": " ".join([w["word"] for w in chunk]),
-                            "words": chunk
-                        })
-            else:
-                new_segments.append(segment)
-        return new_segments
-
-    def analyze_voice_type(self, segments, sample_rate=16000):
-        def compute_rms(audio_segment):
-            if isinstance(audio_segment, np.ndarray):
-                audio_segment = torch.tensor(audio_segment, dtype=torch.float32)
-            return torch.sqrt(torch.mean(audio_segment ** 2)).item()
-
-        for segment in segments:
+            print(f"화자 분리 중 오류 발생: {str(e)}")
+            print("화자 분리 없이 계속 진행합니다.")
+            
+        # 화자 분리 실패시 기본값 설정
+        for segment in result["segments"]:
+            if "speaker" not in segment:
+                segment["speaker"] = "Unknown"
             for word in segment.get("words", []):
-                if "start" not in word or "end" not in word:
-                    continue
-                start_sample = int(word["start"] * sample_rate)
-                end_sample = int(word["end"] * sample_rate)
-                audio_segment = self.audio[start_sample:end_sample]
-                if len(audio_segment) == 0:
-                    word["type"] = -1
-                    continue
-                rms = compute_rms(audio_segment)
-                if rms < 0.02:
-                    word["type"] = 0  # 속삭임
-                elif rms > 0.07:
-                    word["type"] = 2  # 고함
-                else:
-                    word["type"] = 1  # 일반
-        return segments
+                if "speaker" not in word:
+                    word["speaker"] = segment["speaker"]
 
-    def format_timestamp(self, seconds):
-        h, m = divmod(int(seconds), 3600)
-        m, s = divmod(m, 60)
-        ms = int((seconds % 1) * 1000)
-        return f"{h:02}:{m:02}:{s:02},{ms:03}"
+        segments = split_segment_by_max_words(result["segments"], self.max_words)
+        # 최소 지속 시간을 0.7초에서 0.2초로 변경
+        # 너무 짧은 노이즈만 제거 (200ms 미만)
+        segments = [s for s in segments if (s["end"] - s["start"]) > 0.2]
+        print(f"분할된 세그먼트 수: {len(segments)}")
 
-    def segments_to_srt(self, segments):
-        with open(self.output_path, "w", encoding="utf-8") as f:
-            index = 1
+        print("오디오 특성 분석 중...")
+        audio_analyzer = AudioAnalyzer(sample_rate=16000)
+        segments = audio_analyzer.analyze_voice_type(segments, audio)
+
+        if language_code == 'en':
+            # 감정 분류기 초기화 (중복 제거)
+            print("감정 분류 모델 로드 중...")
+            emotion_classifier = EmotionClassifier(
+                device=self.device,
+                batch_size=self.batch_size,
+                cache_dir=os.path.join(self.output_path, ".cache"),
+                file_format=file_format
+            )
+            print("감정 분류 모델 로드 완료")
+
+            # 감정 분석 배치 처리
+            print("감정 분석 중...")
+            segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
+
+            # 감정 분석 통계 출력
+            emotion_stats = {}
             for segment in segments:
-                words = segment.get("words", [])
-                prev_end_time = 0
-                for i, word_info in enumerate(words):
-                    if "start" not in word_info or "end" not in word_info:
-                        continue
-                    start = word_info["start"]
-                    end = word_info["end"]
+                emotion = segment.get('emotion', 'unknown')
+                emotion_stats[emotion] = emotion_stats.get(emotion, 0) + 1
 
-                    speaker = word_info.get("speaker", "Unknown")
+            print("\n===== 감정 분석 통계 =====")
+            total_segments = len(segments)
+            for emotion, count in sorted(emotion_stats.items(), key=lambda x: x[1], reverse=True):
+                percentage = (count / total_segments) * 100
+                print(f" - {emotion}: {count}개 세그먼트 ({percentage:.1f}%)")
+            print("=======================\n")
+        else:
+            print(f"인식된 언어가 'en'이 아닌 '{language_code}'이기 때문에 감정 분석 과정을 생략합니다.")
+        
+        self._segments_to_json(segments)
 
-                    if prev_end_time != 0:
-                        start = prev_end_time
-                    prev_end_time = end
+        return segments
+    
+    def _segments_to_json(self, segments:dict):
+        with open(self.json_path, "w") as f:
+            json.dump(segments, f)
+    
+    def _load_segments(self):
+        with open(self.json_path, "r") as f:
+            segments = json.load(f)
+        
+        return segments
+    
+    def modify_character_name(self, names: list):
+        segments = self._load_segments()
+        full_text = " ".join([s['text'] for s in segments])
 
-                    highlighted_sentence = f"<font size={self.default_font_size}px> [{speaker}]\n"
-                    for j, w in enumerate(words):
-                        word_text = w["word"]
-                        word_type = w.get("type", 1)
-                        if j == i:
-                            if word_type == 0:
-                                highlighted_sentence += f'<font color={self.font_color} size={self.whispering_font_size}px>{word_text}</font> '
-                            elif word_type == 2:
-                                highlighted_sentence += f'<font color={self.font_color} size={self.shouting_font_size}px>{word_text}</font> '
-                            else:
-                                highlighted_sentence += f'<font color={self.font_color}>{word_text}</font> '
-                        else:
-                            if word_type == 0:
-                                highlighted_sentence += f'<font size={self.whispering_font_size}px>{word_text}</font> '
-                            elif word_type == 2:
-                                highlighted_sentence += f'<font size={self.shouting_font_size}px>{word_text}</font> '
-                            else:
-                                highlighted_sentence += word_text + " "
-                    highlighted_sentence += "</font>"
+        response = self.model_cache.client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"""
+            **Identify and Map Misidentified Character Names in Subtitles for Direct Replacement**
 
-                    f.write(f"{index}\n")
-                    f.write(f"{self.format_timestamp(start)} --> {self.format_timestamp(end)}\n")
-                    f.write(f"{highlighted_sentence.strip()}\n\n")
-                    index += 1
-        print(f"SRT 파일이 저장되었습니다: {self.output_path}")
+            **Instructions:**
+            - Analyze the provided list of correct character names and the corresponding subtitle text.
+            - Identify instances where a character's name is likely misrecognized in the subtitle.
+            - **Strictly** identify the exact misrecognized text and its corresponding corrected form. The output should facilitate a direct `replace()` operation.
+            - Your response must be a JSON-formatted string, specifically a dictionary where:
+                - **Keys** are the full, correctly spelled text you want to use for replacement.
+                - **Values** are the exact misidentified text strings found in the subtitle that should be replaced.
 
-    def generate_subtitles(self):
-        model = whisperx.load_model("large-v2", self.device, compute_type=self.compute_type)
-        result = model.transcribe(self.audio, batch_size=self.batch_size)
+            **Input:**
+            - **Correct Character Names (`names`):** {names}
+            - **Subtitle Text (`subtitle`):** {full_text}
 
-        model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=self.device)
-        result = whisperx.align(result["segments"], model_a, metadata, self.audio, self.device, return_char_alignments=False)
+            **Example Output Format (for `names=["박지훈"]` and a subtitle containing "박지후를 찾으세요?"):**
+            {{
+            "박지훈을": "박지후를"
+            }}
+            """
+        )
 
-        diarize_model = whisperx.DiarizationPipeline(model_name="pyannote/speaker-diarization-3.0", use_auth_token=self.auth_token, device=self.device)
-        diarize_segments = diarize_model(self.audio)
-        result = whisperx.assign_word_speakers(diarize_segments, result)
+        try:
+            modifications = json.loads(response.text)
+        except (json.JSONDecodeError, AttributeError):
+            print("API 응답이 유효한 JSON 형식이 아니거나 응답 텍스트가 없습니다.")
+            return
 
-        segments = self.split_segment_by_max_words(result["segments"])
-        segments = self.analyze_voice_type(segments)
-        self.segments_to_srt(segments)
+        for segment in segments:
+            current_text = segment['text']
+            for modified_text, misrecognized_text in modifications.items():
+                if misrecognized_text in current_text:
+                    segment['text'] = current_text.replace(misrecognized_text, modified_text)
+                    current_text = segment['text']
 
-        with open(self.output_path, 'r', encoding='utf-8') as f:
+        # 수정된 세그먼트 데이터를 재사용된 함수를 통해 저장
+        self._segments_to_json(segments)
+        
+        print("음성 인식 결과에서 등장인물 이름 수정 완료.")
+
+    def generate_srt_subtitle(self):
+        srt_subtitle_generator = SRTSubtitleGenerator()
+
+        segments = self._load_segments()
+
+        srt_subtitle_generator.segments_to_srt(segments, self.srt_output_path)
+
+        with open(self.srt_output_path, 'r', encoding='utf-8') as f:
             return f.read()
+    
+    def generate_ass_subtitle(self):
+        pass

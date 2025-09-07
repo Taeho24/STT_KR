@@ -367,6 +367,22 @@ header {
     margin-top: 20px;
 }
 
+.preview-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.preview-btn:hover {
+    background-color: #3900b3;
+    transform: translateY(-2px);
+}
+
 .generate-btn {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     color: white;
