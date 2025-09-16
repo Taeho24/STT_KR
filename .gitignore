@@ -9,3 +9,6 @@ emotion_classification.log
 .venv
 venv/
 venv.bak/
+env/
+ENV/
+.pip/

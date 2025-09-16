@@ -29,12 +29,5 @@ misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
 
-# Environments
-venv/
-env/
-ENV/
-.venv/
-.pip/
-
 # django SECRET_KEY
 */secrets.json
