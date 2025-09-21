@@ -539,3 +539,32 @@ document.addEventListener('mouseup', handleMouseUp);
 minFontSize.addEventListener('input', (e) => handleNumberInput('min', e.target.value));
 defaultFontSize.addEventListener('input', (e) => handleNumberInput('default', e.target.value));
 maxFontSize.addEventListener('input', (e) => handleNumberInput('max', e.target.value));
+
+document.getElementById('add-word-btn').addEventListener('click', function() {
+  const container = document.getElementById('custom-words-container');
+
+  // 단어 입력 row 생성
+  const wordItem = document.createElement('div');
+  wordItem.className = 'word-item';
+
+  // 입력창 생성
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'custom-word-input';
+  input.placeholder = '고유명사를 입력하세요';
+
+  // 삭제 버튼 생성
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'remove-btn';
+  removeBtn.textContent = '❌';
+
+  // 삭제 이벤트 연결
+  removeBtn.addEventListener('click', function() {
+    container.removeChild(wordItem);
+  });
+
+  // 구조 조립
+  wordItem.appendChild(input);
+  wordItem.appendChild(removeBtn);
+  container.appendChild(wordItem);
+});

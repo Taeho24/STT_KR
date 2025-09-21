@@ -540,6 +540,58 @@ header {
   transform: translateY(-2px);
 }
 
+/* 고유명사 교정 */
+#custom-words-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.word-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.custom-word-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.remove-btn {
+  background-color: #ff6b6b;
+  border: none;
+  color: white;
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.remove-btn:hover {
+  background-color: #fa5252;
+}
+
+.add-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  background-color: #f1f3f5;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.add-btn:hover {
+  background-color: #e9ecef;
+}
+
 /* 자막 섹션 스타일 */
 .caption-section {
   padding: 30px;

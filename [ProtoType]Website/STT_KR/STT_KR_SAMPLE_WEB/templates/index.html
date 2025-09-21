@@ -1,6 +1,6 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="ko">
-    {% load static %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -133,11 +133,21 @@
                     </div>
                 </div>
 
+                <!-- 고유명사 입력 -->
+                <div class="settings-group">
+                <h4>고유명사 교정</h4>
+                <div id="custom-words-container">
+                    <!-- 동적으로 입력칸이 추가됨 -->
+                </div>
+                <button id="add-word-btn" class="add-btn">+ 추가</button>
+                </div>
+
                 <div class="preview-controls">
                     <button class="preview-btn" id="preview-btn">미리보기</button>
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
                 </div>
+
             </section>
 
             <!-- 자막 섹션 -->
@@ -179,6 +189,5 @@
     <!-- 자바스크립트 -->
     <script type="module" src="{% static 'js/main.js' %}"></script>
 
-    </script>
 </body>
 </html>
