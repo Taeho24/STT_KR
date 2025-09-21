@@ -46,21 +46,59 @@
                 <div class="caption-settings" id="caption-settings">
                     <h3 class="settings-title">자막 설정</h3>
                     
-                    <!-- 폰트 크기 설정 -->
+                    <!-- 폰트 크기 설정 - 멀티 핸들 슬라이더 -->
                     <div class="settings-group">
                         <h4>자막 폰트 크기 설정</h4>
-                        <div class="font-settings">
-                            <div class="setting-item">
-                                <label for="default-font-size">기본 폰트 크기 (px)</label>
-                                <input type="number" id="default-font-size" min="10" max="72" value="24">
+                        
+                        <div class="multi-slider-container">
+                            <!-- 라벨 표시 -->
+                            <div class="multi-slider-labels">
+                                <span class="slider-label min" id="min-label">최소: 16px</span>
+                                <span class="slider-label default" id="default-label">기본: 24px</span>
+                                <span class="slider-label max" id="max-label">최대: 36px</span>
                             </div>
-                            <div class="setting-item">
-                                <label for="min-font-size">최소 폰트 크기 (px)</label>
-                                <input type="number" id="min-font-size" min="6" max="36" value="16">
+
+                            <!-- 멀티 핸들 슬라이더 -->
+                            <div class="multi-slider" id="multi-slider">
+                                <!-- 슬라이더 트랙 -->
+                                <div class="slider-track">
+                                    <!-- 구간별 색상 표시 -->
+                                    <div class="slider-range min-range" id="min-range"></div>
+                                    <div class="slider-range default-range" id="default-range"></div>
+                                    <div class="slider-range max-range" id="max-range"></div>
+                                </div>
+
+                                <!-- 핸들 -->
+                                <div class="slider-handle min-handle" id="min-handle" data-type="min">
+                                    <div class="handle-tooltip" id="min-tooltip">최소: 16px</div>
+                                </div>
+
+                                <div class="slider-handle default-handle" id="default-handle" data-type="default">
+                                    <div class="handle-tooltip" id="default-tooltip">기본: 24px</div>
+                                </div>
+
+                                <div class="slider-handle max-handle" id="max-handle" data-type="max">
+                                    <div class="handle-tooltip" id="max-tooltip">최대: 36px</div>
+                                </div>
                             </div>
-                            <div class="setting-item">
-                                <label for="max-font-size">최대 폰트 크기 (px)</label>
-                                <input type="number" id="max-font-size" min="16" max="96" value="36">
+
+                            <!-- 숫자 입력 -->
+                            <div class="font-size-inputs">
+                                <div class="input-group">
+                                    <label>최소</label>
+                                    <input type="number" id="min-font-size" min="6" max="94" value="16">
+                                    <span>px</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>기본</label>
+                                    <input type="number" id="default-font-size" min="8" max="94" value="24">
+                                    <span>px</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>최대</label>
+                                    <input type="number" id="max-font-size" min="10" max="96" value="36">
+                                    <span>px</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -123,7 +161,6 @@
                                 <option value="srt">SRT</option>
                                 <option value="vtt">VTT</option>
                                 <option value="txt">TXT</option>
-                                <option value-"ASS">ASS</option>
                             </select>
                         </div>
                     </div>
@@ -144,6 +181,21 @@
         import { FFmpeg } from '../static/@ffmpeg/ffmpeg/dist/esm/index.js'
         import { fetchFile } from '../static/@ffmpeg/util/dist/esm/index.js'
 
+        // 폰트 크기 상태 관리
+        const fontSizes = {
+            min: 16,
+            default: 24,
+            max: 36
+        };
+
+        // 슬라이더 설정
+        const SLIDER_MIN = 6;
+        const SLIDER_MAX = 96;
+
+        // 드래그 상태
+        let isDragging = null;
+        let sliderRect = null;
+
         // 감정 데이터 정의
         const EMOTIONS = {
             neutral: { name: '중립', defaultColor: '#FFFFFF' },
@@ -155,6 +207,8 @@
             disgust: { name: '혐오', defaultColor: '#008080' }
             // newEmotion: { name: '감정', defaultColor: '#색상코드' }
         };
+
+        const DEFAULT_HIGHLIGHT_COLOR = '#FFFF00';
 
         // DOM 요소 선택
         const uploadArea = document.getElementById('upload-area');
@@ -171,6 +225,12 @@
         const captionTextarea = document.getElementById('caption-textarea');
         const downloadBtn = document.getElementById('download-btn');
         const formatSelect = document.getElementById('format-select');
+        
+        // 멀티 슬라이더 요소들
+        const multiSlider = document.getElementById('multi-slider');
+        const minHandle = document.getElementById('min-handle');
+        const defaultHandle = document.getElementById('default-handle');
+        const maxHandle = document.getElementById('max-handle');
 
         // 자막 설정 요소
         const defaultFontSize = document.getElementById('default-font-size');
@@ -186,6 +246,117 @@
 
         let audioBlob = null;
 
+        // 값을 퍼센트로 변환
+        function valueToPercent(value) {
+            return ((value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+        }
+
+        // 퍼센트를 값으로 변환
+        function percentToValue(percent) {
+            return Math.round(SLIDER_MIN + (percent / 100) * (SLIDER_MAX - SLIDER_MIN));
+        }
+
+        // 마우스 위치를 퍼센트로 변환
+        function getPercentFromMouse(e) {
+            if (!sliderRect) return 0;
+            const percent = ((e.clientX - sliderRect.left) / sliderRect.width) * 100;
+            return Math.max(0, Math.min(100, percent));
+        }
+
+        // UI 업데이트
+        function updateSliderUI() {
+            // 핸들 위치 업데이트
+            minHandle.style.left = valueToPercent(fontSizes.min) + '%';
+            defaultHandle.style.left = valueToPercent(fontSizes.default) + '%';
+            maxHandle.style.left = valueToPercent(fontSizes.max) + '%';
+
+            // 구간 색상 업데이트
+            const minRange = document.getElementById('min-range');
+            const defaultRange = document.getElementById('default-range');
+            const maxRange = document.getElementById('max-range');
+
+            minRange.style.left = '0%';
+            minRange.style.width = valueToPercent(fontSizes.min) + '%';
+
+            defaultRange.style.left = valueToPercent(fontSizes.min) + '%';
+            defaultRange.style.width = (valueToPercent(fontSizes.default) - valueToPercent(fontSizes.min)) + '%';
+
+            maxRange.style.left = valueToPercent(fontSizes.default) + '%';
+            maxRange.style.width = (valueToPercent(fontSizes.max) - valueToPercent(fontSizes.default)) + '%';
+
+            // 라벨 및 툴팁 업데이트
+            document.getElementById('min-label').textContent = `최소: ${fontSizes.min}px`;
+            document.getElementById('default-label').textContent = `기본: ${fontSizes.default}px`;
+            document.getElementById('max-label').textContent = `최대: ${fontSizes.max}px`;
+
+            document.getElementById('min-tooltip').textContent = `최소: ${fontSizes.min}px`;
+            document.getElementById('default-tooltip').textContent = `기본: ${fontSizes.default}px`;
+            document.getElementById('max-tooltip').textContent = `최대: ${fontSizes.max}px`;
+
+            // 숫자 입력 업데이트
+            minFontSize.value = fontSizes.min;
+            defaultFontSize.value = fontSizes.default;
+            maxFontSize.value = fontSizes.max;
+
+            // 입력 범위 업데이트
+            minFontSize.max = fontSizes.default - 1;
+            defaultFontSize.min = fontSizes.min + 1;
+            defaultFontSize.max = fontSizes.max - 1;
+            maxFontSize.min = fontSizes.default + 1;
+        }
+
+        // 폰트 크기 값 업데이트
+        function updateFontSize(type, value) {
+            const newValue = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, value));
+
+            switch (type) {
+                case 'min':
+                    fontSizes.min = Math.min(newValue, fontSizes.default - 1);
+                    break;
+                case 'default':
+                    fontSizes.default = Math.max(fontSizes.min + 1, Math.min(newValue, fontSizes.max - 1));
+                    break;
+                case 'max':
+                    fontSizes.max = Math.max(newValue, fontSizes.default + 1);
+                    break;
+            }
+
+            updateSliderUI();
+        }
+
+        // 드래그 시작
+        function handleMouseDown(e) {
+            e.preventDefault();
+            isDragging = e.target.closest('.slider-handle').dataset.type;
+            sliderRect = multiSlider.getBoundingClientRect();
+            
+            // 드래그 중 스타일 적용
+            e.target.closest('.slider-handle').classList.add('dragging');
+        }
+
+        // 드래그 중
+        function handleMouseMove(e) {
+            if (!isDragging) return;
+
+            const percent = getPercentFromMouse(e);
+            const newValue = percentToValue(percent);
+            updateFontSize(isDragging, newValue);
+        }
+
+        // 드래그 종료
+        function handleMouseUp() {
+            if (isDragging) {
+                document.querySelector(`[data-type="${isDragging}"]`).classList.remove('dragging');
+                isDragging = null;
+                sliderRect = null;
+            }
+        }
+
+        // 숫자 입력 핸들러
+        function handleNumberInput(type, value) {
+            updateFontSize(type, parseInt(value));
+        }
+        
         async function extractAudio(videoFile) {
             await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
             await ffmpeg.exec(['-i', 'input.mp4', '-vn', 'output.wav']);
@@ -297,7 +468,7 @@
             }
         });
 
-        // 폰트 크기 유효성 검사
+        // 폰트 크기 유효성 검사??
         function validateFontSizes() {
             const defaultSize = parseInt(defaultFontSize.value);
             const minSize = parseInt(minFontSize.value);
@@ -330,6 +501,7 @@
             }
         });
 
+        // 미리보기 VTT 생성
         function generatePreviewVTT() {
             // 설정 값 가져오기
             const defaultSize = defaultFontSize.value;
@@ -535,6 +707,18 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         });
+
+        // 슬라이더 이벤트 리스너 등록
+        minHandle.addEventListener('mousedown', handleMouseDown);
+        defaultHandle.addEventListener('mousedown', handleMouseDown);
+        maxHandle.addEventListener('mousedown', handleMouseDown);
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        minFontSize.addEventListener('input', (e) => handleNumberInput('min', e.target.value));
+        defaultFontSize.addEventListener('input', (e) => handleNumberInput('default', e.target.value));
+        maxFontSize.addEventListener('input', (e) => handleNumberInput('max', e.target.value));
     </script>
 </body>
 </html>
