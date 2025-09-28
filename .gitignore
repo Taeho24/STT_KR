@@ -1,9 +1,21 @@
+__pycache__/
+
 # Development
-\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/hf_token.txt
-\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/subtitle.srt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/*.txt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/*.srt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/*.json
 \[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/assets/*.wav
+emotion_classification.log
 
 # Environments
 .venv
 venv/
 venv.bak/
+
+# redis
+redis-stable/
+dump.rdb
+
+env/
+ENV/
+.pip/

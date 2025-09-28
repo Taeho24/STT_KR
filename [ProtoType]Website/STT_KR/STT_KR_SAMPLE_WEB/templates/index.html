@@ -1,6 +1,6 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="ko">
-    {% load static %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,28 +37,68 @@
             <section class="preview-section" id="preview-section">
                 <h2 class="preview-title">동영상 미리보기</h2>
                 <div class="video-container">
-                    <video class="video-preview" id="video-preview" controls></video>
+                    <video class="video-preview" id="video-preview" controls>
+                        <track id="subtitleTrack" kind="subtitles" srclang="ko" label="Korean">
+                    </video>
                 </div>
 
                 <!-- 자막 설정 옵션 -->
                 <div class="caption-settings" id="caption-settings">
                     <h3 class="settings-title">자막 설정</h3>
                     
-                    <!-- 폰트 크기 설정 -->
+                    <!-- 폰트 크기 설정 - 멀티 핸들 슬라이더 -->
                     <div class="settings-group">
                         <h4>자막 폰트 크기 설정</h4>
-                        <div class="font-settings">
-                            <div class="setting-item">
-                                <label for="default-font-size">기본 폰트 크기 (px)</label>
-                                <input type="number" id="default-font-size" min="10" max="72" value="24">
+                        
+                        <div class="multi-slider-container">
+                            <!-- 라벨 표시 -->
+                            <div class="multi-slider-labels">
+                                <span class="slider-label min" id="min-label">최소: 20px</span>
+                                <span class="slider-label default" id="default-label">기본: 24px</span>
+                                <span class="slider-label max" id="max-label">최대: 28px</span>
                             </div>
-                            <div class="setting-item">
-                                <label for="min-font-size">최소 폰트 크기 (px)</label>
-                                <input type="number" id="min-font-size" min="6" max="36" value="16">
+
+                            <!-- 멀티 핸들 슬라이더 -->
+                            <div class="multi-slider" id="multi-slider">
+                                <!-- 슬라이더 트랙 -->
+                                <div class="slider-track">
+                                    <!-- 구간별 색상 표시 -->
+                                    <div class="slider-range min-range" id="min-range"></div>
+                                    <div class="slider-range default-range" id="default-range"></div>
+                                    <div class="slider-range max-range" id="max-range"></div>
+                                </div>
+
+                                <!-- 핸들 -->
+                                <div class="slider-handle min-handle" id="min-handle" data-type="min">
+                                    <div class="handle-tooltip" id="min-tooltip">최소: 20px</div>
+                                </div>
+
+                                <div class="slider-handle default-handle" id="default-handle" data-type="default">
+                                    <div class="handle-tooltip" id="default-tooltip">기본: 24px</div>
+                                </div>
+
+                                <div class="slider-handle max-handle" id="max-handle" data-type="max">
+                                    <div class="handle-tooltip" id="max-tooltip">최대: 28px</div>
+                                </div>
                             </div>
-                            <div class="setting-item">
-                                <label for="max-font-size">최대 폰트 크기 (px)</label>
-                                <input type="number" id="max-font-size" min="16" max="96" value="36">
+
+                            <!-- 숫자 입력 -->
+                            <div class="font-size-inputs">
+                                <div class="input-group">
+                                    <label>최소</label>
+                                    <input type="number" id="min-font-size" min="6" max="94" value="20">
+                                    <span>px</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>기본</label>
+                                    <input type="number" id="default-font-size" min="8" max="94" value="24">
+                                    <span>px</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>최대</label>
+                                    <input type="number" id="max-font-size" min="10" max="96" value="28">
+                                    <span>px</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -93,10 +133,21 @@
                     </div>
                 </div>
 
+                <!-- 고유명사 입력 -->
+                <div class="settings-group">
+                <h4>고유명사 교정</h4>
+                <div id="custom-words-container">
+                    <!-- 동적으로 입력칸이 추가됨 -->
+                </div>
+                <button id="add-word-btn" class="add-btn">+ 추가</button>
+                </div>
+
                 <div class="preview-controls">
+                    <button class="preview-btn" id="preview-btn">미리보기</button>
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
                 </div>
+
             </section>
 
             <!-- 자막 섹션 -->
@@ -136,312 +187,7 @@
     </footer>
 
     <!-- 자바스크립트 -->
-    <script type="module">
-        import { FFmpeg } from '../static/@ffmpeg/ffmpeg/dist/esm/index.js'
-        import { fetchFile } from '../static/@ffmpeg/util/dist/esm/index.js'
+    <script type="module" src="{% static 'js/main.js' %}"></script>
 
-        // 감정 데이터 정의
-        const EMOTIONS = {
-            neutral: { name: '중립', defaultColor: '#FFFFFF' },
-            happy: { name: '행복', defaultColor: '#00FF00' },
-            sad: { name: '슬픔', defaultColor: '#0000FF' },
-            angry: { name: '분노', defaultColor: '#FF0000' },
-            fear: { name: '공포', defaultColor: '#800080' },
-            surprise: { name: '놀람', defaultColor: '#00FFFF' },
-            disgust: { name: '혐오', defaultColor: '#008080' }
-            // newEmotion: { name: '감정', defaultColor: '#색상코드' }
-        };
-
-        // DOM 요소 선택
-        const uploadArea = document.getElementById('upload-area');
-        const fileInput = document.getElementById('file-input');
-        const selectFileBtn = document.getElementById('select-file-btn');
-        const previewSection = document.getElementById('preview-section');
-        const videoPreview = document.getElementById('video-preview');
-        const generateBtn = document.getElementById('generate-btn');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const captionSection = document.getElementById('caption-section');
-        const loading = document.getElementById('loading');
-        const captionContent = document.getElementById('caption-content');
-        const captionTextarea = document.getElementById('caption-textarea');
-        const downloadBtn = document.getElementById('download-btn');
-        const formatSelect = document.getElementById('format-select');
-
-        // 자막 설정 요소
-        const defaultFontSize = document.getElementById('default-font-size');
-        const minFontSize = document.getElementById('min-font-size');
-        const maxFontSize = document.getElementById('max-font-size');
-        const highlightColor = document.getElementById('highlight-color');
-        const emotionColorsGrid = document.getElementById('emotion-colors-grid');
-        const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
-        const resethighlightBtn = document.getElementById('reset-highlight-btn');
-
-        const ffmpeg = new FFmpeg();
-        await ffmpeg.load();
-
-        let audioBlob = null;
-
-        async function extractAudio(videoFile) {
-            await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
-            await ffmpeg.exec(['-i', 'input.mp4', '-vn', 'output.wav']);
-            const audioData = await ffmpeg.readFile('output.wav');
-            audioBlob = new Blob([audioData.buffer], { type: 'audio/wav' });
-        }
-
-        async function generateCaptions() {
-            const videoFile = fileInput.files[0];
-            if (!videoFile) {
-                alert('비디오 파일을 선택하세요.');
-                return;
-            }
-
-            try {
-                await extractAudio(videoFile);
-            } catch (err) {
-                console.error('오디오 추출 실패:', err);
-                alert('오디오 추출에 실패했습니다.');
-                return;
-            }
-
-            // 오디오 파일 추가
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'audio.wav');
-
-            // 자막 스타일 수집
-            formData.append('default_font_size', defaultFontSize.value);
-            formData.append('min_font_size', minFontSize.value);
-            formData.append('max_font_size', maxFontSize.value);
-            formData.append('highlight_color', highlightColor.value);
-
-            const emotionColors = getEmotionColors();
-            for (const [emotion, color] of Object.entries(emotionColors)) {
-                formData.append(`${emotion}`, color);
-            }
-
-            try {
-                const res = await fetch('/STT/generate-caption/', {
-                    method: 'POST',
-                    body: formData,
-                });
-                if (!res.ok) throw new Error('서버 오류');
-
-                const captions = await res.text();
-                captionTextarea.value = captions;
-                loading.style.display = 'none';
-                captionContent.style.display = 'block';
-            } catch (err) {
-                console.error('자막 생성 오류:', err);
-                alert('자막 생성에 실패했습니다.');
-            }
-        }
-
-        // 감정 색상 설정 UI 생성 함수
-        function createEmotionColorSettings() {
-            emotionColorsGrid.innerHTML = '';
-            
-            Object.entries(EMOTIONS).forEach(([emotionKey, emotionData]) => {
-                const emotionItem = document.createElement('div');
-                emotionItem.className = 'emotion-item';
-                
-                emotionItem.innerHTML = `
-                    <label class="emotion-label" for="emotion-${emotionKey}">${emotionData.name}</label>
-                    <input 
-                        type="color" 
-                        id="emotion-${emotionKey}" 
-                        class="emotion-color-input" 
-                        value="${emotionData.defaultColor}"
-                        data-emotion="${emotionKey}"
-                    >
-                `;
-                
-                emotionColorsGrid.appendChild(emotionItem);
-            });
-        }
-
-        // 감정 색상 설정 값 수집 함수
-        function getEmotionColors() {
-            const emotionColors = {};
-            
-            Object.keys(EMOTIONS).forEach(emotionKey => {
-                const colorInput = document.getElementById(`emotion-${emotionKey}`);
-                if (colorInput) {
-                    emotionColors[emotionKey] = colorInput.value;
-                }
-            });
-            
-            return emotionColors;
-        }
-
-        // 감정 색상을 기본값으로 리셋하는 함수
-        function resetEmotionColors() {
-            Object.entries(EMOTIONS).forEach(([emotionKey, emotionData]) => {
-                const colorInput = document.getElementById(`emotion-${emotionKey}`);
-                if (colorInput) {
-                    colorInput.value = emotionData.defaultColor;
-                }
-            });
-        }
-
-        // 감정 색상 설정 UI 생성
-        createEmotionColorSettings();
-
-        // 감정 색상 기본값 복원 버튼 이벤트
-        resetEmotionsBtn.addEventListener('click', () => {
-            if (confirm('모든 감정 색상을 기본값으로 복원하시겠습니까?')) {
-                resetEmotionColors();
-            }
-        });
-
-        // 폰트 크기 유효성 검사
-        function validateFontSizes() {
-            const defaultSize = parseInt(defaultFontSize.value);
-            const minSize = parseInt(minFontSize.value);
-            const maxSize = parseInt(maxFontSize.value);
-            
-            if (minSize > defaultSize) {
-                alert('최소 폰트 크기는 기본 폰트 크기보다 작아야 합니다.');
-                minFontSize.value = defaultSize - 4;
-                return false;
-            }
-            
-            if (maxSize < defaultSize) {
-                alert('최대 폰트 크기는 기본 폰트 크기보다 커야 합니다.');
-                maxFontSize.value = defaultSize + 4;
-                return false;
-            }
-            
-            return true;
-        }
-
-        // 폰트 크기 입력 필드 변경 시 유효성 검사
-        defaultFontSize.addEventListener('change', validateFontSizes);
-        minFontSize.addEventListener('change', validateFontSizes);
-        maxFontSize.addEventListener('change', validateFontSizes);
-
-        // 하이라이트 기본값 복원 버튼 이벤트
-        resethighlightBtn.addEventListener('click', function() {
-            if (confirm('하이라이트 색상을 기본값으로 복원하시겠습니까?')) {
-                highlightColor.value = '#FFFF00';
-            }
-        });
-
-        // 자막 생성 버튼 클릭 시
-        generateBtn.addEventListener('click', async () => {
-            captionSection.style.display = 'block';
-            loading.style.display = 'block';
-            captionContent.style.display = 'none';
-            captionSection.scrollIntoView({ behavior: 'smooth' });
-
-            await generateCaptions();
-        });
-
-        // 파일 선택 버튼 클릭 시 파일 입력 창 열기
-        selectFileBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        // 파일 입력 변경 시 처리
-        fileInput.addEventListener('change', handleFileSelect);
-
-        // 드래그 앤 드롭 이벤트 처리
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.style.borderColor = '#4a00e0';
-            uploadArea.style.backgroundColor = '#f9f9f9';
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.style.borderColor = '#ccc';
-            uploadArea.style.backgroundColor = 'transparent';
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.style.borderColor = '#ccc';
-            uploadArea.style.backgroundColor = 'transparent';
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        });
-
-        // 파일 선택 처리 함수
-        function handleFileSelect(e) {
-            const files = e.target.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        }
-
-        // 파일 처리 함수
-        function handleFile(file) {
-            // 파일 유형 검사
-            if (!file.type.startsWith('video/')) {
-                alert('비디오 파일만 업로드할 수 있습니다.');
-                return;
-            }
-            
-            // 파일 크기 검사 (500MB 제한)
-            if (file.size > 500 * 1024 * 1024) {
-                alert('파일 크기는 500MB를 초과할 수 없습니다.');
-                return;
-            }
-            
-            // 비디오 미리보기 설정
-            const videoURL = URL.createObjectURL(file);
-            videoPreview.src = videoURL;
-            
-            // 미리보기 섹션 표시
-            previewSection.style.display = 'block';
-            
-            // 페이지 스크롤
-            previewSection.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // 취소 버튼 클릭 시
-        cancelBtn.addEventListener('click', () => {
-            // 비디오 미리보기 초기화
-            videoPreview.src = '';
-            
-            // 섹션 숨기기
-            previewSection.style.display = 'none';
-            captionSection.style.display = 'none';
-            
-            // 파일 입력 초기화
-            fileInput.value = '';
-        });
-
-        // 자막 다운로드 버튼 클릭 시
-        downloadBtn.addEventListener('click', () => {
-            const format = formatSelect.value;
-            const content = captionTextarea.value;
-            
-            if (!content.trim()) {
-                alert('다운로드할 자막이 없습니다.');
-                return;
-            }
-            
-            // 파일 이름 설정
-            const filename = `captions.${format}`;
-            
-            // Blob 생성
-            const blob = new Blob([content], { type: 'text/plain' });
-            
-            // 다운로드 링크 생성
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            
-            // 링크 클릭하여 다운로드 시작
-            document.body.appendChild(a);
-            a.click();
-            
-            // 정리
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        });
-    </script>
 </body>
 </html>
