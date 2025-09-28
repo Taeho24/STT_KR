@@ -56,6 +56,7 @@ def process_extra_video(video_path):
     
     vad_options = {"use_vad": True}
     model = whisperx.load_model("large-v2", device, compute_type=compute_type, vad_options=vad_options)
+    model = whisperx.load_model("medium", device, compute_type=compute_type, vad_options=vad_options)
     
     print("오디오 추출 중...")
     audio = whisperx.load_audio(video_path)
