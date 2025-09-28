@@ -15,21 +15,26 @@ class ModelCache:
 
     @classmethod
     def load_models(cls, device, compute_type, auth_token, gemini_api_key):
-        print("WhisperX 모델 로드...")
-        cls.whisper_model = whisperx.load_model("large-v2", device, compute_type=compute_type)
-
-        print("화자 분리 모델 로드...")
         try:
-            cls.diarize_model = whisperx.DiarizationPipeline(model_name="pyannote/speaker-diarization-3.0", use_auth_token=auth_token, device=device)
+            print("WhisperX 모델 로드...")
+            # 모델 종류: large-v3, large-v2, medium
+            cls.whisper_model = whisperx.load_model("large-v2", device=device, compute_type=compute_type, )
+
+            print("en 모델 로드...")
+            cls.model_en, cls.metadata_en = whisperx.load_align_model(language_code="en", device=device)
+
+            print("ko 모델 로드...")
+            cls.model_ko, cls.metadata_ko = whisperx.load_align_model(language_code="ko", device=device)
+
+            print("화자 분리 모델 로드...")
+            try:
+                cls.diarize_model = whisperx.DiarizationPipeline(model_name="pyannote/speaker-diarization-3.0", use_auth_token=auth_token, device=device)
+            except Exception as e:
+                print(f"화자 분리 모델 로드 실패: {e}")
+            
+            print("모든 모델 로드 완료")
         except Exception as e:
-            print(f"화자 분리 모델 로드 실패: {e}")
+            print(f"ERROR: WhisperX 모델 로드 실패 - {e}")
+            raise e
 
-        """
-        감정 분류 모델 로드 부분 추가
-        print("감정 분류 모델을 로드합니다...")
-        cls.emotion_classifier = EmotionClassifier(device=device, batch_size=16)
-        """
-        
-        print("모든 모델 로딩 완료")
-
-        cls.client = genai.Client(api_key=gemini_api_key)
+        # cls.client = genai.Client(api_key=gemini_api_key)
