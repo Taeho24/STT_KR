@@ -144,59 +144,62 @@ class SubtitleGenerator:
         return segments
     
     def modify_proper_nouns(self, proper_nouns: list):
-        segments = self._load_segments()
-        full_text = " ".join([s['text'] for s in segments])
+        if len(proper_nouns) > 0:
+            segments = self._load_segments()
+            full_text = " ".join([s['text'] for s in segments])
 
-        # TODO: s['text']로 이루어진 full_text가 아닌 s['words']['word'] 값들을 보고 답변을 생성하도록 수정
-        # 현재로서는 key, value가 word 단위로 생성되지 않는 경우가 생김
-        response = self.model_cache.client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=f"""
-            Ignore all previous instructions. You are starting a new conversation.
+            # TODO: s['text']로 이루어진 full_text가 아닌 s['words']['word'] 값들을 보고 답변을 생성하도록 수정
+            # 현재로서는 key, value가 word 단위로 생성되지 않는 경우가 생김
+            response = self.model_cache.client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"""
+                Ignore all previous instructions. You are starting a new conversation.
 
-            **Role:** You are a text analysis expert specialized in correcting speech-to-text (STT) misrecognitions of proper nouns. Your task is to identify potential misspellings in subtitle text and map them to their correct form.
+                **Role:** You are a text analysis expert specialized in correcting speech-to-text (STT) misrecognitions of proper nouns. Your task is to identify potential misspellings in subtitle text and map them to their correct form.
 
-            **Instructions:**
-            1.  **Strictly** analyze the provided `subtitle` text against the `proper_nouns` list.
-            2.  Find any substrings in the `subtitle` that are likely misrecognized versions of the `proper_nouns`.
-            3.  Your final output must be a single JSON object. The **KEYS** of this object should be the **correct proper nouns**, and the **VALUES** should be the **misrecognized substrings** found in the subtitle text.
-            4.  **Crucially, your response MUST be a valid JSON-formatted string. DO NOT use markdown code blocks or any other formatting. Provide the raw JSON object only, with no other text or explanation.**
+                **Instructions:**
+                1.  **Strictly** analyze the provided `subtitle` text against the `proper_nouns` list.
+                2.  Find any substrings in the `subtitle` that are likely misrecognized versions of the `proper_nouns`.
+                3.  Your final output must be a single JSON object. The **KEYS** of this object should be the **correct proper nouns**, and the **VALUES** should be the **misrecognized substrings** found in the subtitle text.
+                4.  **Crucially, your response MUST be a valid JSON-formatted string. DO NOT use markdown code blocks or any other formatting. Provide the raw JSON object only, with no other text or explanation.**
 
-            **Example Input:**
-            - proper_nouns: ["박지훈"]
-            - subtitle: "안녕하세요, 박지후를 찾으세요?"
+                **Example Input:**
+                - proper_nouns: ["박지훈"]
+                - subtitle: "안녕하세요, 박지후를 찾으세요?"
 
-            **Example Output:**
-            {{
-            "박지훈을": "박지후를", 
-            }}
+                **Example Output:**
+                {{
+                "박지훈을": "박지후를", 
+                }}
 
-            **Input Data:**
-            - proper_nouns: {proper_nouns}
-            - subtitle: {full_text}
-            """
-        )
+                **Input Data:**
+                - proper_nouns: {proper_nouns}
+                - subtitle: {full_text}
+                """
+            )
 
-        try:
-            modifications = json.loads(response.text)
-            print(f"response 내용: {modifications}")
-        except (json.JSONDecodeError, AttributeError) as e:
-            print(f"API 응답 처리 오류: {e}")
-            print("API 응답이 유효한 JSON 형식이 아니거나 응답 텍스트가 없습니다.")
-            print(f"response 내용: {response.text}")
-            return
+            try:
+                modifications = json.loads(response.text)
+                print(f"response 내용: {modifications}")
+            except (json.JSONDecodeError, AttributeError) as e:
+                print(f"API 응답 처리 오류: {e}")
+                print("API 응답이 유효한 JSON 형식이 아니거나 응답 텍스트가 없습니다.")
+                print(f"response 내용: {response.text}")
+                return
 
-        for segment in segments:
-            for modified_text, misrecognized_text in modifications.items():
-                if misrecognized_text in segment['text']:
-                    segment['text'] = segment['text'].replace(misrecognized_text, modified_text)
-                    for word in segment['words']:
-                        word['word'] = word['word'].replace(misrecognized_text, modified_text)
+            for segment in segments:
+                for modified_text, misrecognized_text in modifications.items():
+                    if misrecognized_text in segment['text']:
+                        segment['text'] = segment['text'].replace(misrecognized_text, modified_text)
+                        for word in segment['words']:
+                            word['word'] = word['word'].replace(misrecognized_text, modified_text)
 
-        # 수정된 세그먼트 데이터 저장
-        self._segments_to_json(segments)
-        
-        print("고유명사 교정 완료")
+            # 수정된 세그먼트 데이터 저장
+            self._segments_to_json(segments)
+            
+            print("고유명사 교정 완료")
+        else:
+            print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
     def generate_srt_subtitle(self):
         srt_subtitle_generator = SRTSubtitleGenerator()
