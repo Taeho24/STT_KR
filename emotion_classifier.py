@@ -103,10 +103,20 @@ class EmotionClassifier:
             batch = segments[i:i + self.batch_size]
             
             # 배치 데이터 준비
-            batch_audio = [
-                audio_data[int(seg['start'] * sr):int(seg['end'] * sr)]
-                for seg in batch
-            ]
+            batch_audio = []
+            for seg in batch:
+                try:
+                    start_idx = int(seg['start'] * sr)
+                    end_idx = int(seg['end'] * sr)
+                    if start_idx < len(audio_data) and end_idx <= len(audio_data) and start_idx < end_idx:
+                        audio_segment = audio_data[start_idx:end_idx]
+                        batch_audio.append(audio_segment)
+                    else:
+                        # 인덱스 범위 초과 시 대체 데이터
+                        batch_audio.append(np.zeros(1600, dtype=np.float32))
+                except Exception as e:
+                    logging.warning(f"Audio segment extraction error: {str(e)}")
+                    batch_audio.append(np.zeros(1600, dtype=np.float32))
             batch_text = [seg.get('text', '') for seg in batch]
 
             # 배치 처리
@@ -194,13 +204,31 @@ class EmotionClassifier:
             return [{"neutral": 1.0}] * len(audio_segments)
 
         try:
-            # 1. 오디오 특성 추출 및 분석
+            # 빈 또는 너무 짧은 세그먼트 필터링
+            valid_segments = []
+            for segment in audio_segments:
+                if isinstance(segment, np.ndarray) and len(segment) > 0:
+                    # 최소 길이 확인 (0.1초 = 1600 samples at 16kHz)
+                    if len(segment) < 1600:
+                        # 짧은 세그먼트는 패딩
+                        padded = np.pad(segment, (0, max(0, 1600 - len(segment))), 'constant')
+                        valid_segments.append(padded)
+                    else:
+                        valid_segments.append(segment)
+                else:
+                    # 빈 세그먼트는 묵음 대체
+                    valid_segments.append(np.zeros(1600, dtype=np.float32))
+            
+            if not valid_segments:
+                return [{"neutral": 1.0}] * len(audio_segments)
+            
+            # 오디오 특성 추출
             features = self.feature_extractor(
-                audio_segments,
+                valid_segments,
                 sampling_rate=16000,
                 padding=True,
-                truncation=True,  # 추가: 긴 오디오 잘라내기
-                max_length=16000 * 10,  # 추가: 최대 10초로 제한
+                truncation=True,
+                max_length=16000 * 10,  # 최대 10초로 제한
                 return_tensors="pt"
             ).to(self.device)
 
@@ -251,20 +279,22 @@ class EmotionClassifier:
 
         # 최종 감정 선택
         best_emotion = max(combined_scores.items(), key=lambda x: x[1])
+        
+        # 상위 2개 감정 선택 (로그용)
+        sorted_emotions = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:2]
 
-        # 디버그용 로깅 추가
-        print(f"Debug - Text scores: {text_scores}")
-        print(f"Debug - Audio scores: {audio_scores}")
-        print(f"Debug - Combined scores: {combined_scores}")
-        print(f"Debug - Best emotion: {best_emotion[0]} ({best_emotion[1]})")
-
-        return EmotionResult(
+        result = EmotionResult(
             emotion=best_emotion[0],
             confidence=best_emotion[1],
             features=self._extract_audio_features(segment),
             text_score=text_scores.get(best_emotion[0], 0.0),
             audio_score=audio_scores.get(best_emotion[0], 0.1)  # 최소값 0.1 설정
         )
+        
+        # 가독성 좋은 로그 출력
+        self._log_segment_result_improved(segment, result, text_scores, audio_scores, combined_scores, sorted_emotions)
+        
+        return result
 
     def _extract_audio_features(self, segment: Dict[str, Any]) -> Dict[str, float]:
         """세그먼트별 오디오 특성 추출"""
@@ -279,8 +309,28 @@ class EmotionClassifier:
             logging.warning(f"Feature extraction warning: {str(e)}")
         return features
 
+    def _log_segment_result_improved(self, segment: Dict[str, Any], result: EmotionResult, 
+                                   text_scores: Dict[str, float], audio_scores: Dict[str, float],
+                                   combined_scores: Dict[str, float], sorted_emotions: List):
+        text = segment.get('text', '').strip()
+        timestamp = segment.get('start', 0)
+        
+        if not text:  # 빈 텍스트 건너뛰기
+            return
+            
+        # 상위 2개 감정만 표시
+        top2_text = ' | '.join([f"{emotion}: {score:.3f}" for emotion, score in sorted_emotions])
+        top2_audio = ' | '.join([f"{emotion}: {audio_scores.get(emotion, 0.0):.3f}" for emotion, score in sorted_emotions])
+        top2_combined = ' | '.join([f"{emotion}: {score:.3f}" for emotion, score in sorted_emotions])
+        
+        # 3줄을 한 묶음으로 출력 (박스 형태)
+        print(f"\n┌─ [{timestamp:.1f}s] {text[:60]}{'...' if len(text) > 60 else ''}")
+        print(f"├─ Text:     {top2_text}")
+        print(f"├─ Audio:    {top2_audio}")
+        print(f"└─ Combined: {top2_combined}")
+        
     def _log_segment_result(self, segment: Dict[str, Any], result: EmotionResult):
-        """세그먼트 분석 결과 로깅"""
+        """기존 JSON 로깅 (파일용)"""
         log_entry = {
             'timestamp': segment.get('start', 0),
             'text': segment.get('text', ''),
@@ -307,11 +357,11 @@ class EmotionClassifier:
     @staticmethod
     def get_emotion_color(emotion: str) -> str:
         """감정별 색상 코드 반환"""
-        # 디버그용 로깅 추가
+        # 디버그용 로깅으로 변경 (기본 INFO/STDOUT 출력 억제)
         emotion_colors = config.get('colors', 'emotion_colors')
         default_color = config.get('colors', 'default_color', '&HFFFFFF')
         resolved_color = emotion_colors.get(emotion, default_color)
-        print(f"Debug - Emotion color resolution: {emotion} -> {resolved_color}")
+        logging.debug(f"Emotion color resolution: {emotion} -> {resolved_color}")
         return resolved_color  # 기본값은 흰색
 
     def classify_emotions(self, segments, full_audio):
