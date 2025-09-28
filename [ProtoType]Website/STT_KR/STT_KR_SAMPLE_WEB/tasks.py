@@ -2,7 +2,7 @@ from STT_KR.celery import app
 from .utils.subtitle_generator import SubtitleGenerator 
 
 @app.task()
-def process_and_generate_srt_task(audio_path, file_format: str = "srt"):
+def process_and_generate_srt_task(audio_path, proper_nouns: list, file_format: str = "srt"):
     """
     음성 인식부터 SRT 자막 생성까지의 전체 작업을 수행하는 Celery 태스크
 
@@ -13,6 +13,9 @@ def process_and_generate_srt_task(audio_path, file_format: str = "srt"):
         sg = SubtitleGenerator(audio_path=audio_path)
         
         sg.process_video(file_format=file_format)
+
+        if len(proper_nouns) > 0:
+            sg.modify_proper_nouns(proper_nouns)
         
         srt_text = sg.generate_srt_subtitle()
         

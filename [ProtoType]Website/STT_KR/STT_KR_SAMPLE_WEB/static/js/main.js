@@ -209,6 +209,23 @@ formData.append('min_font_size', minFontSize.value);
 formData.append('max_font_size', maxFontSize.value);
 formData.append('highlight_color', highlightColor.value);
 
+// 고유명사 수집
+const customWordsContainer = document.getElementById('custom-words-container');
+const customWordInputs = customWordsContainer.querySelectorAll('.custom-word-input');
+const customWords = [];
+
+customWordInputs.forEach(input => {
+// 입력값이 비어있지 않은 경우에만 리스트에 추가
+if (input.value.trim() !== '') {
+customWords.push(input.value.trim());
+}
+});
+
+// 수집된 고유명사 리스트를 JSON 문자열로 변환하여 FormData에 추가
+if (customWords.length > 0) {
+formData.append('proper_nouns', JSON.stringify(customWords));
+}
+
 const emotionColors = getEmotionColors();
 for (const [emotion, color] of Object.entries(emotionColors)) {
 formData.append(`${emotion}`, color);

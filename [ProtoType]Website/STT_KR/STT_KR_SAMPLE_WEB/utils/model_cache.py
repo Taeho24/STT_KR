@@ -7,6 +7,7 @@ class ModelCache:
     align_model = None
     diarize_model = None
     emotion_classifier = None
+    client = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -37,4 +38,9 @@ class ModelCache:
             print(f"ERROR: WhisperX 모델 로드 실패 - {e}")
             raise e
 
-        # cls.client = genai.Client(api_key=gemini_api_key)
+        # gemini client 등록
+        if gemini_api_key:
+            cls.client = genai.Client(api_key=gemini_api_key)
+            print("gemini client 등록 완료")
+        else:
+            print("gemini api key가 유효하지 않습니다.")

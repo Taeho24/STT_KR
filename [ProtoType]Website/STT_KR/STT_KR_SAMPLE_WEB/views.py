@@ -31,6 +31,9 @@ def generate_caption(request):
             for chunk in audio_file.chunks():
                 destination.write(chunk)
 
+        # 고유명사 값 수집
+        proper_nouns = request.POST.get("proper_nouns", [])
+
         # 스타일 관련 값 수집
         default_font_size = int(request.POST.get("default_font_size", "24"))
         min_font_size = int(request.POST.get("min_font_size", "20"))
@@ -70,7 +73,7 @@ def generate_caption(request):
         # 비동기 방식
         #==========================================================
         # 오디오 처리
-        task = process_and_generate_srt_task.delay(wsl_path)
+        task = process_and_generate_srt_task.delay(audio_path=wsl_path, proper_nouns=proper_nouns)
 
         # 클라이언트에게 즉시 202 응답과 작업 ID를 전달
         return JsonResponse({"task_id": task.id}, status=202)
