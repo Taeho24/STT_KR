@@ -22,5 +22,9 @@ scikit-optimize==0.9.0  # 추가: Bayesian optimization을 위한 패키지
 psutil==5.9.6
 Django==5.2.6
 djangorestframework==3.16.1
+asgiref==3.8.1
+sqlparse==0.5.3
+typing_extensions==4.13.2
+tzdata==2025.2
 google-genai==1.39.0
 celery[redis]
