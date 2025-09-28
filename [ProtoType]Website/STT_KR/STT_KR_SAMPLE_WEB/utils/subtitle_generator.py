@@ -13,18 +13,20 @@ from .model_cache import ModelCache
 
 class SubtitleGenerator:
     def __init__(
-            self, audio_path=os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'assets', 'extracted.wav'),
+            self, audio_path,
             max_words=10, 
             device="cuda" if torch.cuda.is_available() else "cpu",
             compute_type="float16" if torch.cuda.is_available() else "float32",
-            batch_size=16):
+            batch_size=4):
         # 경로 설정
         self.audio_path = audio_path
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
         self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'results')
-        self.json_path = os.path.join(self.output_path, f"segments.json")
-        self.srt_output_path = os.path.join(self.output_path, f"subtitle.srt")
-        self.ass_output_path = os.path.join(self.output_path, f"subtitle.ass")
+        
+        base_name = os.path.splitext(os.path.basename(audio_path))[0]
+        self.json_path = os.path.join(self.output_path, f"{base_name}_segments.json")
+        self.srt_output_path = os.path.join(self.output_path, f"{base_name}_subtitle.srt")
+        self.ass_output_path = os.path.join(self.output_path, f"{base_name}_subtitle.ass")
 
         os.makedirs(self.output_path, exist_ok=True)
 
@@ -62,9 +64,14 @@ class SubtitleGenerator:
         language_code = result["language"]
 
         print("음성 정렬 수행 중...")
-        model_a, metadata = whisperx.load_align_model(language_code=language_code, device=self.device)
-        result = whisperx.align(result["segments"], model_a, metadata, audio, self.device, return_char_alignments=False)
-
+        if language_code == "en":
+            result = whisperx.align(result["segments"], self.model_cache.model_en, self.model_cache.metadata_en, audio, self.device, return_char_alignments=False)
+        elif language_code == "ko":
+            result = whisperx.align(result["segments"], self.model_cache.model_ko, self.model_cache.metadata_ko, audio, self.device, return_char_alignments=False)
+        else:
+            model_tmp, metadata_tmp = whisperx.load_align_model(language_code=language_code, device=self.device)
+            result = whisperx.align(result["segments"], model_tmp, metadata_tmp, audio, self.device, return_char_alignments=False)
+        
         print("화자 분리 수행 중...")
         try:
             diarize_model = self.model_cache.diarize_model
@@ -177,7 +184,7 @@ class SubtitleGenerator:
                     segment['text'] = current_text.replace(misrecognized_text, modified_text)
                     current_text = segment['text']
 
-        # 수정된 세그먼트 데이터를 재사용된 함수를 통해 저장
+        # 수정된 세그먼트 데이터 저장
         self._segments_to_json(segments)
         
         print("음성 인식 결과에서 등장인물 이름 수정 완료.")
