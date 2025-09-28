@@ -15,3 +15,7 @@ venv.bak/
 # redis
 redis-stable/
 dump.rdb
+
+env/
+ENV/
+.pip/
