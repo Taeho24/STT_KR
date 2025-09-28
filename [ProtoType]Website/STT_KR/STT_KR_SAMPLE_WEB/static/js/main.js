@@ -3,9 +3,9 @@ import { fetchFile } from '/static/@ffmpeg/util/dist/esm/index.js'
 
 // 폰트 크기 상태 관리
 const fontSizes = {
-min: 16,
+min: 20,
 default: 24,
-max: 36
+max: 28
 };
 
 // 슬라이더 설정

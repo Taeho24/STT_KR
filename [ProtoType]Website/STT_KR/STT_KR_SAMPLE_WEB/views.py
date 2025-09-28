@@ -1,13 +1,15 @@
 import os
+import uuid
+
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse, HttpResponseServerError
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from .utils.subtitle_generator import SubtitleGenerator
+
+from celery.result import AsyncResult
+
 from .tasks import process_and_generate_srt_task
 from .utils.config import config
-from celery.result import AsyncResult
-import uuid
 
 @csrf_exempt
 def generate_caption(request):
@@ -16,7 +18,7 @@ def generate_caption(request):
 
     try:
         audio_file = request.FILES["audio"]
-        
+
         # 파일명 충돌을 피하기 위해 고유한 파일명 사용
         unique_filename = f"{uuid.uuid4()}_{audio_file.name}"
         audio_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'assets', unique_filename)
@@ -30,9 +32,9 @@ def generate_caption(request):
                 destination.write(chunk)
 
         # 스타일 관련 값 수집
-        default_font_size = int(request.POST.get("default_font_size", "12"))
-        min_font_size = int(request.POST.get("min_font_size", "10"))
-        max_font_size = int(request.POST.get("max_font_size", "14"))
+        default_font_size = int(request.POST.get("default_font_size", "24"))
+        min_font_size = int(request.POST.get("min_font_size", "20"))
+        max_font_size = int(request.POST.get("max_font_size", "28"))
         hex_highlight_color = request.POST.get("highlight_color", "#FFFF00")
         ass_highlight_color = config.hex_to_ass(hex_highlight_color)
 
