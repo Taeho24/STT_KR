@@ -1,3 +1,5 @@
+__pycache__/
+
 # Development
 \[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/*.txt
 \[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/*.srt
@@ -10,5 +12,6 @@ emotion_classification.log
 venv/
 venv.bak/
 
+# redis
 redis-stable/
 dump.rdb
