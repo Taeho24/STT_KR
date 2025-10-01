@@ -22,21 +22,21 @@ def read_auth_token(file_path):
 
 def split_segment_by_max_words(segments, max_words):
     """최대 단어 수에 따라 세그먼트 분할"""
+    if not segments:
+        return []
+    
     new_segments = []
     
     for segment in segments:
         words = segment.get("words", [])
         
-        # 단어 유효성 검사 추가
+        # 단어 유효성 검사
         valid_words = []
         for word in words:
-            # 필수 키가 있는지 확인
-            if not isinstance(word, dict):
-                continue
-            if 'word' not in word:
+            if not isinstance(word, dict) or 'word' not in word:
                 continue
             
-            # start와 end가 없는 경우 세그먼트의 시작/끝 시간 사용
+            # start와 end가 없는 경우 기본값 설정
             if 'start' not in word or 'end' not in word:
                 word['start'] = segment.get('start', 0)
                 word['end'] = segment.get('end', segment.get('start', 0) + 0.5)
@@ -76,13 +76,14 @@ def split_segment_by_max_words(segments, max_words):
     return new_segments
 
 def get_video_info(video_path):
-    """비디오 파일의 정보 추출 (해상도, 프레임 레이트 등)"""
+    """비디오 파일의 정보 추출"""
+    default_info = {"width": 1920, "height": 1080, "fps": 30.0}
+    
     try:
-        # OpenCV를 사용하여 비디오 정보 읽기
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             print(f"비디오 파일을 열 수 없습니다: {video_path}")
-            return {"width": 1920, "height": 1080, "fps": 30.0}
+            return default_info
         
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -101,8 +102,7 @@ def get_video_info(video_path):
         }
     except Exception as e:
         print(f"비디오 정보 읽기 오류: {e}")
-        # 기본값 반환
-        return {"width": 1920, "height": 1080, "fps": 30.0}
+        return default_info
 
 def ffmpeg_available():
     """FFmpeg가 시스템에 설치되어 있는지 확인"""

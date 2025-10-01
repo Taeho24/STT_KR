@@ -8,6 +8,7 @@ from .audio_analyzer import AudioAnalyzer
 from .emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
 from .srt_subtitle_generator import SRTSubtitleGenerator
 from .utils import split_segment_by_max_words
+from .subtitle_config import load_subtitle_settings
 from django.conf import settings
 from .model_cache import ModelCache
 
@@ -21,12 +22,12 @@ class SubtitleGenerator:
         # 경로 설정
         self.audio_path = audio_path
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
-        self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'results')
+        self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'tmp', 'result')
         
-        base_name = os.path.splitext(os.path.basename(audio_path))[0]
-        self.json_path = os.path.join(self.output_path, f"{base_name}_segments.json")
-        self.srt_output_path = os.path.join(self.output_path, f"{base_name}_subtitle.srt")
-        self.ass_output_path = os.path.join(self.output_path, f"{base_name}_subtitle.ass")
+        self.id = os.path.splitext(os.path.basename(audio_path))[0]
+        self.json_path = os.path.join(self.output_path, f"{self.id}_segments.json")
+        self.srt_output_path = os.path.join(self.output_path, f"{self.id}_subtitle.srt")
+        self.ass_output_path = os.path.join(self.output_path, f"{self.id}_subtitle.ass")
 
         os.makedirs(self.output_path, exist_ok=True)
 
@@ -202,7 +203,9 @@ class SubtitleGenerator:
             print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
     def generate_srt_subtitle(self):
-        srt_subtitle_generator = SRTSubtitleGenerator()
+        subtitle_settings = load_subtitle_settings(self.id)
+
+        srt_subtitle_generator = SRTSubtitleGenerator(subtitle_settings=subtitle_settings)
 
         segments = self._load_segments()
 
