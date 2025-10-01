@@ -202,6 +202,38 @@ class SubtitleGenerator:
         else:
             print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
+    def get_speaker_name(self):
+        speaker_names = []
+        
+        segments = self._load_segments()
+
+        for segment in segments:
+            for s in segment['words']:
+                if s['speaker'] in speaker_names:
+                    continue
+                else:
+                    speaker_names.append(s['speaker'])
+        
+        return speaker_names
+
+    def replace_speaker_name(self, new_names: json):
+        """
+        new_names: {"SPEAKER_00": "NEW_NAME", }
+        """
+        segments = self._load_segments()
+
+        for current_name, new_name in new_names.items():
+            for segment in segments:
+                for s in segment['words']:
+                    if s['speaker'] == current_name:
+                        s['speaker'] = new_name
+        
+        self._segments_to_json(segments)
+
+        srt_subtitle = self.generate_srt_subtitle()
+
+        return srt_subtitle
+
     def generate_srt_subtitle(self):
         subtitle_settings = load_subtitle_settings(self.id)
 
