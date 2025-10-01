@@ -16,6 +16,9 @@ const SLIDER_MAX = 96;
 let isDragging = null;
 let sliderRect = null;
 
+// 실제 비디오 파일의 해상도를 저장할 변수
+let videoFileDimensions = null;
+
 // 감정 데이터 정의
 const EMOTIONS = {
 neutral: { name: '중립', defaultColor: '#FFFFFF' },
@@ -338,12 +341,64 @@ highlightColor.value = '#FFFF00';
 }
 });
 
+function getVideoDimensions(file) {
+return new Promise((resolve, reject) => {
+const video = document.createElement('video');
+video.preload = 'metadata';
+video.muted = true;
+video.playsInline = true;
+
+video.onloadedmetadata = function() {
+window.URL.revokeObjectURL(video.src);
+resolve({
+width: video.videoWidth,
+height: video.videoHeight
+});
+};
+video.onerror = function() {
+reject("비디오 메타데이터를 로드할 수 없습니다.");
+};
+
+video.src = URL.createObjectURL(file);
+video.load();
+});
+}
+
+// 자막을 적용하는 함수
+function applySubtitles() {
+const existingTrack = document.getElementById('subtitleTrack');
+if (existingTrack) {
+existingTrack.remove();
+}
+
+// 전체 화면일 경우 스크린 너비, 아니면 플레이어 너비 사용
+const playerWidth = document.fullscreenElement ? screen.width : videoPreview.offsetWidth;
+const vttData = generatePreviewVTT(videoFileDimensions.width, playerWidth);
+const vttBlob = new Blob([vttData], { type: 'text/vtt' });
+const vttUrl = URL.createObjectURL(vttBlob);
+const newTrack = document.createElement('track');
+newTrack.id = 'subtitleTrack';
+newTrack.kind = 'subtitles';
+newTrack.label = 'Korean';
+newTrack.srclang = 'ko';
+newTrack.src = vttUrl;
+videoPreview.appendChild(newTrack);
+newTrack.track.mode = 'showing';
+}
+
+videoPreview.onfullscreenchange = () => {
+if (videoFileDimensions) {
+// 자막 적용 함수 호출
+applySubtitles();
+}
+};
+
 // 미리보기 VTT 생성
-function generatePreviewVTT() {
+function generatePreviewVTT(videoFileWidth, playerWidth) {
 // 설정 값 가져오기
-const defaultSize = defaultFontSize.value;
-const minSize = minFontSize.value;
-const maxSize = maxFontSize.value;
+const defaultSize = Math.round((defaultFontSize.value * playerWidth) / videoFileWidth);
+const minSize = Math.round((minFontSize.value * playerWidth) / videoFileWidth);
+const maxSize = Math.round((maxFontSize.value * playerWidth) / videoFileWidth);
 const highlight = highlightColor.value;
 const emotionColors = getEmotionColors();
 
@@ -398,33 +453,25 @@ return `WEBVTT\n${styleBlock}\n${cueBlock}`;
 }
 
 // 미리보기 버튼 클릭 시
-previewBtn.addEventListener('click', () => {
-const video = videoPreview;
-
-// 이전 자막 트랙이 있다면 제거
-const existingTrack = document.getElementById('subtitleTrack');
-if (existingTrack) {
-existingTrack.remove();
+previewBtn.addEventListener('click', async () => {
+const videoFile = fileInput.files[0];
+if (!videoFile) {
+alert('비디오 파일을 먼저 선택하세요.');
+return;
 }
 
-// 새로운 VTT 데이터와 Blob URL 생성
-const vttData = generatePreviewVTT();
-const vttBlob = new Blob([vttData], { type: 'text/vtt' });
-const vttUrl = URL.createObjectURL(vttBlob);
+if (!videoFileDimensions) {
+try {
+videoFileDimensions = await getVideoDimensions(videoFile);
+} catch (error) {
+console.error(error);
+alert('비디오 해상도 정보를 가져올 수 없습니다. 다시 시도해 주세요.');
+return;
+}
+}
 
-// 새로운 <track> 요소를 생성하고 속성 설정
-const newTrack = document.createElement('track');
-newTrack.id = 'subtitleTrack';
-newTrack.kind = 'subtitles';
-newTrack.label = 'Korean';
-newTrack.srclang = 'ko';
-newTrack.src = vttUrl;
-
-// 새로운 트랙을 video 요소에 추가
-video.appendChild(newTrack);
-
-// 새로 추가된 트랙을 활성화(showing).
-newTrack.track.mode = 'showing';
+// 자막 적용 함수 호출
+applySubtitles();
 });
 
 // 자막 생성 버튼 클릭 시
@@ -493,6 +540,7 @@ return;
 // 비디오 미리보기 설정
 const videoURL = URL.createObjectURL(file);
 videoPreview.src = videoURL;
+videoFileDimensions = null;
 
 // 미리보기 섹션 표시
 previewSection.style.display = 'block';
