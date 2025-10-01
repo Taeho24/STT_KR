@@ -5,15 +5,21 @@ import os
 import argparse
 import whisperx
 import torch
+_old_torch_load = torch.load
+def _patched_load(*args, **kwargs):
+    kwargs["weights_only"] = False
+    return _old_torch_load(*args, **kwargs)
+
+torch.load = _patched_load
 import numpy as np
 from pathlib import Path
 import sys
 import time
-import datetime  # 추가
+import datetime
 
 # 상대 경로 모듈 가져오기
 from audio_analyzer import AudioAnalyzer
-from emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
+from emotion_classifier import EmotionClassifier
 from subtitle_generator import generate_ass_subtitle
 from utils import read_auth_token, split_segment_by_max_words, get_video_info, add_subtitle_to_video
 from config import config
@@ -25,11 +31,43 @@ def parse_arguments():
     parser.add_argument("--output_dir", type=str, default="result", help="결과 저장 디렉토리")
     parser.add_argument("--hf_token_path", type=str, default="private/hf_token.txt", help="Hugging Face 토큰 파일 경로")
     parser.add_argument("--max_words", type=int, default=10, help="세그먼트당 최대 단어 수")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", type=str, default="auto", help="계산 디바이스 (auto/cuda/cpu)")
     parser.add_argument("--batch_size", type=int, default=16, help="배치 크기")
     parser.add_argument("--compute_type", type=str, default=None, help="계산 타입")
     parser.add_argument("--add_to_video", action="store_true", help="자막을 영상에 합성")
     return parser.parse_args()
+
+def ask_user_fallback_to_cpu():
+    print("\nCUDA를 사용할 수 없습니다.")
+    print("선택 사항:")
+    print("1. CPU 모드로 계속 진행 (처리 시간 증가)")
+    print("2. 프로그램 종료")
+    
+    while True:
+        try:
+            choice = input("\n선택하세요 (1 또는 2): ").strip()
+            if choice == "1":
+                return True
+            elif choice == "2":
+                return False
+            else:
+                print("잘못된 입력입니다. 1 또는 2를 입력하세요.")
+        except (KeyboardInterrupt, EOFError):
+            print("\n프로그램을 종료합니다.")
+            return False
+
+def check_cuda_availability():
+    """CUDA 사용 가능성을 체크하고 적절한 디바이스 반환"""
+    if not torch.cuda.is_available():
+        return "cpu", "CUDA가 사용 불가능합니다. CPU 모드를 사용합니다."
+    
+    try:
+        # CUDA 디바이스에 간단한 테스트 수행
+        test_tensor = torch.tensor([1.0]).cuda()
+        test_tensor.cpu()
+        return "cuda", f"CUDA 사용 가능: GPU {torch.cuda.get_device_name()}"
+    except Exception as e:
+        return "cpu", f"CUDA 테스트 실패: {str(e)}. CPU 모드를 사용합니다."
 
 def generate_srt_subtitle(segments, output_path):
     def format_timestamp(seconds):
@@ -54,39 +92,65 @@ def process_extra_video(video_path):
 
     print(f"\n추가 비디오 처리 시작: {video_path}")
     
-    vad_options = {"use_vad": True}
-    model = whisperx.load_model("large-v2", device, compute_type=compute_type, vad_options=vad_options)
-    model = whisperx.load_model("medium", device, compute_type=compute_type, vad_options=vad_options)
-    
-    print("오디오 추출 중...")
-    audio = whisperx.load_audio(video_path)
-    
-    print("음성 인식(STT) 수행 중...")
-    result = model.transcribe(audio, batch_size=16)
-    language_code = result["language"]
-    print(f"감지된 언어: {language_code}")
-    
-    print("음성 정렬 수행 중...")
-    model_a, metadata = whisperx.load_align_model(language_code=language_code, device=device)
-    result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
-    
-    segments = split_segment_by_max_words(result["segments"], 10)
-    segments = [s for s in segments if (s["end"] - s["start"]) > 0.7]
-    print(f"분할된 세그먼트 수: {len(segments)}")
-    
-    audio_analyzer = AudioAnalyzer(sample_rate=16000)
-    segments = audio_analyzer.analyze_audio_features(segments, audio)
-    
-    return segments
+    try:
+        vad_options = {"use_vad": True}
+        model = whisperx.load_model("large-v2", device, compute_type=compute_type, vad_options=vad_options)
+        
+        print("오디오 추출 중...")
+        audio = whisperx.load_audio(video_path)
+        
+        print("음성 인식(STT) 수행 중...")
+        result = model.transcribe(audio, batch_size=16)
+        language_code = result["language"]
+        print(f"감지된 언어: {language_code}")
+        
+        print("음성 정렬 수행 중...")
+        model_a, metadata = whisperx.load_align_model(language_code=language_code, device=device)
+        result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
+        
+        segments = split_segment_by_max_words(result["segments"], 10)
+        segments = [s for s in segments if (s["end"] - s["start"]) > 0.7]
+        print(f"분할된 세그먼트 수: {len(segments)}")
+        
+        audio_analyzer = AudioAnalyzer(sample_rate=16000)
+        segments = audio_analyzer.analyze_audio_features(segments, audio)
+        
+        return segments
+        
+    except Exception as e:
+        print(f"추가 비디오 처리 중 오류 발생: {str(e)}")
+        return []
 
 def process_video(args):
+    """비디오 처리 파이프라인"""
     video_path = args.video
-    # 파일 존재 여부 확인 추가
+    
+    # 조기 검증: 파일 존재 여부와 토큰 확인
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"입력 비디오 파일을 찾을 수 없습니다: {video_path}\n"
                               f"현재 작업 디렉토리: {os.getcwd()}\n"
                               f"입력된 경로: {video_path}")
     
+    # 디바이스 설정 개선
+    if args.device.lower() == "auto":
+        device, cuda_msg = check_cuda_availability()
+        print(f"\n디바이스 자동 선택: {cuda_msg}")
+        args.device = device
+    elif args.device.lower() == "cuda":
+        device, cuda_msg = check_cuda_availability()
+        if device == "cpu":
+            print(f"\nCUDA를 요청했지만 사용할 수 없습니다: {cuda_msg}")
+            if not ask_user_fallback_to_cpu():
+                print("프로그램을 종료합니다.")
+                sys.exit(0)
+            args.device = "cpu"
+            print("CPU 모드로 진행합니다...")
+    
+    auth_token = read_auth_token(args.hf_token_path)
+    if not auth_token:
+        print("Hugging Face 토큰을 불러오는데 실패했습니다. 화자 분리를 건너뛸 수 있습니다.")
+    
+    # 출력 경로 설정
     video_filename = Path(video_path).stem
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
@@ -95,38 +159,64 @@ def process_video(args):
     srt_output_path = os.path.join(output_dir, f"{video_filename}.srt")
     output_video_path = os.path.join(output_dir, f"{video_filename}_subbed.mp4") if args.add_to_video else None
 
-    auth_token = read_auth_token(args.hf_token_path)
-    if not auth_token:
-        print("Hugging Face 토큰을 불러오는데 실패했습니다. 화자 분리를 건너뛸 수 있습니다.")
-
+    # 비디오 정보 추출
     video_info = get_video_info(video_path)
     print(f"비디오 정보: {video_info}")
 
-    # ✅ 미리 감정 분류 모델 로드 시작
-    print("MIT/AST 및 RoBERTa 감정 분류 모델 로드 중...")
-    # CPU 모드에서는 더 작은 배치 크기 사용
-    if args.device == "cpu":
-        args.batch_size = min(args.batch_size, 4)
-    
-    emotion_classifier = EmotionClassifier(
-        device=args.device,
-        batch_size=args.batch_size,
-        cache_dir=os.path.join(args.output_dir, ".cache")
-    )
-    print("감정 분류 모델 로드 완료")
-
-    # compute_type 자동 선택
+    # compute_type 자동 선택 및 강제 설정
     if args.compute_type is None:
         args.compute_type = "float16" if args.device == "cuda" else "float32"
-    print(f"Selected compute type: {args.compute_type}")
+    
+    # CPU 모드에서는 더 작은 배치 크기 사용
+    if args.device == "cpu":
+        # CPU 메모리와 성능에 맞게 배치 크기 조정
+        original_batch_size = args.batch_size
+        args.batch_size = min(args.batch_size, 4)
+        if original_batch_size != args.batch_size:
+            print(f"CPU 모드에서 배치 크기를 {original_batch_size}에서 {args.batch_size}로 조정했습니다.")
+    
+    print(f"Selected compute type: {args.compute_type}, batch size: {args.batch_size}")
 
-    # WhisperX 모델 로드 부분 수정
+    # WhisperX 모델 로드
     print("WhisperX 모델 로드 중...")
-    model = whisperx.load_model(
-        "large-v2",
-        args.device,
-        compute_type=args.compute_type
-    )
+    try:
+        # VAD 옵션을 단순화하여 호환성 문제 해결
+        model = whisperx.load_model(
+            "large-v2",
+            args.device,
+            compute_type=args.compute_type
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if ("CUDA" in error_msg or "cuda" in error_msg.lower() or 
+            "compute_type" in error_msg or "incompatible constructor" in error_msg):
+            print(f"\nCUDA/compute_type 오류 발생: {error_msg}")
+            
+            if args.device == "cuda":
+                if not ask_user_fallback_to_cpu():
+                    print("프로그램을 종료합니다.")
+                    sys.exit(1)
+                
+                print("CPU 모드로 재시도...")
+                args.device = "cpu"
+                args.compute_type = "float32"
+                args.batch_size = min(args.batch_size, 4)
+                
+                try:
+                    model = whisperx.load_model(
+                        "large-v2",
+                        args.device,
+                        compute_type=args.compute_type
+                    )
+                    print("CPU 모드로 모델 로드 성공")
+                except Exception as retry_error:
+                    print(f"CPU 모드 실패: {str(retry_error)}")
+                    sys.exit(1)
+            else:
+                raise
+        else:
+            print(f"WhisperX 모델 로드 실패: {str(e)}")
+            raise
 
     print(f"오디오 추출 중: {video_path}")
     audio = whisperx.load_audio(video_path)
@@ -205,7 +295,6 @@ def process_video(args):
                 word["speaker"] = segment["speaker"]
 
     segments = split_segment_by_max_words(result["segments"], args.max_words)
-    # 최소 지속 시간을 0.7초에서 0.2초로 변경
     # 너무 짧은 노이즈만 제거 (200ms 미만)
     segments = [s for s in segments if (s["end"] - s["start"]) > 0.2]
     print(f"분할된 세그먼트 수: {len(segments)}")
@@ -214,7 +303,7 @@ def process_video(args):
     audio_analyzer = AudioAnalyzer(sample_rate=16000)
     segments = audio_analyzer.analyze_audio_features(segments, audio)
 
-    # 감정 분류기 초기화 (중복 제거)
+    # 감정 분류기 초기화
     print("감정 분류 모델 로드 중...")
     emotion_classifier = EmotionClassifier(
         device=args.device,
@@ -228,17 +317,18 @@ def process_video(args):
     segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
 
     # 감정 분석 통계 출력
-    emotion_stats = {}
-    for segment in segments:
-        emotion = segment.get('emotion', 'unknown')
-        emotion_stats[emotion] = emotion_stats.get(emotion, 0) + 1
+    if segments:
+        emotion_stats = {}
+        for segment in segments:
+            emotion = segment.get('emotion', 'unknown')
+            emotion_stats[emotion] = emotion_stats.get(emotion, 0) + 1
 
-    print("\n===== 감정 분석 통계 =====")
-    total_segments = len(segments)
-    for emotion, count in sorted(emotion_stats.items(), key=lambda x: x[1], reverse=True):
-        percentage = (count / total_segments) * 100
-        print(f" - {emotion}: {count}개 세그먼트 ({percentage:.1f}%)")
-    print("=======================\n")
+        print("\n===== 감정 분석 통계 =====")
+        total_segments = len(segments)
+        for emotion, count in sorted(emotion_stats.items(), key=lambda x: x[1], reverse=True):
+            percentage = (count / total_segments) * 100
+            print(f" - {emotion}: {count}개 세그먼트 ({percentage:.1f}%)")
+        print("=======================\n")
 
     print("SRT 자막 생성 중...")
     generate_srt_subtitle(segments, srt_output_path)
@@ -261,8 +351,6 @@ def process_video(args):
 def main():
     args = parse_arguments()
     
-    # config 관련 코드 제거
-    
     # 시작 시간 기록
     start_time = time.time()
 
@@ -273,6 +361,10 @@ def main():
     elapsed_time = time.time() - start_time
     minutes = int(elapsed_time // 60)
     seconds = int(elapsed_time % 60)
+
+    # 메모리 정리
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     print("\n===== 처리 완료 =====")
     print(f"입력 비디오: {args.video}")

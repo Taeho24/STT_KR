@@ -585,3 +585,5 @@ document.getElementById('add-word-btn').addEventListener('click', function() {
   wordItem.appendChild(removeBtn);
   container.appendChild(wordItem);
 });
+
+updateSliderUI()

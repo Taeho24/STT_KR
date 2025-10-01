@@ -1,17 +1,16 @@
 import torch
 import numpy as np
-from .config import config
+import json
 
 class SRTSubtitleGenerator:
-    def __init__(self, max_words=10):  # 자막 세그먼트 당 최대 단어 개수 (최대 10개 단어 단위로 나누어 자막 생성)
+    def __init__(self, subtitle_settings: json, max_words=10):  # 자막 세그먼트 당 최대 단어 개수 (최대 10개 단어 단위로 나누어 자막 생성)
         self.max_words = max_words
-        self.default_font = config.get('font', 'default_font')
-        self.default_font_size = config.get('font', 'default_size')
-        self.whispering_font_size = config.get('font', 'min_size')
-        self.shouting_font_size = config.get('font', 'max_size')
-        self.emotion_colors = config.get('hex_colors', 'emotion_colors')
-        self.default_color = config.get('hex_colors', 'default_color')
-        self.highlight_color = config.get('hex_colors', 'highlight_color')
+        self.default_font_size = subtitle_settings['font']['default_size']
+        self.min_font_size = subtitle_settings['font']['min_size']
+        self.max_font_size = subtitle_settings['font']['max_size']
+        self.emotion_colors = subtitle_settings['hex_colors']['emotion_colors']
+        self.default_color = subtitle_settings['hex_colors']['default_color']
+        self.highlight_color = subtitle_settings['hex_colors']['highlight_color']
 
     def split_segment_by_max_words(self, segments):
         new_segments = []
@@ -107,16 +106,16 @@ class SRTSubtitleGenerator:
                         word_type = w.get("type", 1)
                         if j == i:
                             if word_type == 0:
-                                highlighted_sentence += f'<font color={self.highlight_color} size={self.whispering_font_size}px>{word_text}</font> '
+                                highlighted_sentence += f'<font color={self.highlight_color} size={self.min_font_size}px>{word_text}</font> '
                             elif word_type == 2:
-                                highlighted_sentence += f'<font color={self.highlight_color} size={self.shouting_font_size}px>{word_text}</font> '
+                                highlighted_sentence += f'<font color={self.highlight_color} size={self.max_font_size}px>{word_text}</font> '
                             else:
                                 highlighted_sentence += f'<font color={self.highlight_color}>{word_text}</font> '
                         else:
                             if word_type == 0:
-                                highlighted_sentence += f'<font size={self.whispering_font_size}px>{word_text}</font> '
+                                highlighted_sentence += f'<font size={self.min_font_size}px>{word_text}</font> '
                             elif word_type == 2:
-                                highlighted_sentence += f'<font size={self.shouting_font_size}px>{word_text}</font> '
+                                highlighted_sentence += f'<font size={self.max_font_size}px>{word_text}</font> '
                             else:
                                 highlighted_sentence += word_text + " "
                     highlighted_sentence += "</font>"

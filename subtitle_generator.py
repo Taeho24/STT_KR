@@ -3,10 +3,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import random
 import datetime
 from pathlib import Path
-from emotion_classifier import EmotionClassifier  # 추가된 import
 from config import config
 
 def generate_ass_subtitle(segments, output_path, video_info=None):
@@ -80,10 +78,9 @@ class ASSSubtitleGenerator:
         st = self._format_time(segment['start'])
         ed = self._format_time(segment['end'])
         
-        # 감정에 따른 하이라이트 색상 설정과 디버깅
+        # 감정에 따른 하이라이트 색상 설정
         emotion = segment.get('emotion', 'neutral')
         highlight_color = self.emotion_colors.get(emotion, self.default_color)
-        print(f"Debug - Emotion: {emotion}, Color code: {highlight_color}")
         
         text = ""
         
@@ -156,7 +153,6 @@ class ASSSubtitleGenerator:
                     "}" +
                     " "
                 )
-                print(f"Debug - Word: {word['word']}, Applied color: {highlight_color}")
                 
                 prev_end = word['end']
         else:
