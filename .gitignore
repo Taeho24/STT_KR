@@ -1,10 +1,10 @@
 __pycache__/
 
 # Development
-\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/*.txt
-\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/*.srt
-\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/results/*.json
-\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/assets/*.wav
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/result/
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/config/
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/asset/
 emotion_classification.log
 
 # Environments
