@@ -203,18 +203,14 @@ class SubtitleGenerator:
             print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
     def get_speaker_name(self):
-        speaker_names = []
-        
         segments = self._load_segments()
+        speaker_names = set()
 
         for segment in segments:
             for s in segment['words']:
-                if s['speaker'] in speaker_names:
-                    continue
-                else:
-                    speaker_names.append(s['speaker'])
+                speaker_names.add(s['speaker'])
         
-        return speaker_names
+        return list(speaker_names)
 
     def replace_speaker_name(self, new_names: json):
         """
@@ -222,11 +218,13 @@ class SubtitleGenerator:
         """
         segments = self._load_segments()
 
-        for current_name, new_name in new_names.items():
-            for segment in segments:
-                for s in segment['words']:
-                    if s['speaker'] == current_name:
-                        s['speaker'] = new_name
+        for segment in segments:
+            for word_data in segment.get('words', []):
+                # 딕셔너리 조회로 스피커 이름 존재 여부 확인
+                current_name = word_data.get('speaker')
+                if current_name in new_names:
+                    # 딕셔너리의 새 이름으로 즉시 교체
+                    word_data['speaker'] = new_names[current_name]
         
         self._segments_to_json(segments)
 
