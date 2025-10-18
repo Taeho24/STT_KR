@@ -39,12 +39,13 @@ const videoPreview = document.getElementById('video-preview');
 const previewBtn = document.getElementById('preview-btn');
 const generateBtn = document.getElementById('generate-btn');
 const cancelBtn = document.getElementById('cancel-btn');
+
 const captionSection = document.getElementById('caption-section');
 const loading = document.getElementById('loading');
-const captionContent = document.getElementById('caption-content');
-const captionTextarea = document.getElementById('caption-textarea');
-const downloadBtn = document.getElementById('download-btn');
-const formatSelect = document.getElementById('format-select');
+//const captionContent = document.getElementById('caption-content');
+//const captionTextarea = document.getElementById('caption-textarea');
+//const downloadBtn = document.getElementById('download-btn');
+//const formatSelect = document.getElementById('format-select');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -60,6 +61,9 @@ const highlightColor = document.getElementById('highlight-color');
 const emotionColorsGrid = document.getElementById('emotion-colors-grid');
 const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
 const resethighlightBtn = document.getElementById('reset-highlight-btn');
+
+const tasksList = document.getElementById('tasks-list');
+const tasksContent = document.getElementById('tasks-content');
 
 const ffmpeg = new FFmpeg();
 await ffmpeg.load();
@@ -222,9 +226,11 @@ body: formData,
 if (!res.ok) throw new Error('서버 오류');
 
 const captions = await res.text();
-captionTextarea.value = captions;
+//captionTextarea.value = captions;
+tasksList.value = captions;
 loading.style.display = 'none';
-captionContent.style.display = 'block';
+//captionContent.style.display = 'block';
+tasksContent.style.display = 'block';
 } catch (err) {
 console.error('자막 생성 오류:', err);
 alert('자막 생성에 실패했습니다.');
@@ -414,7 +420,8 @@ newTrack.track.mode = 'showing';
 generateBtn.addEventListener('click', async () => {
 captionSection.style.display = 'block';
 loading.style.display = 'block';
-captionContent.style.display = 'none';
+//captionContent.style.display = 'none';
+tasksContent.style.display = 'none';
 captionSection.scrollIntoView({ behavior: 'smooth' });
 
 await generateCaptions();
@@ -454,17 +461,17 @@ handleFile(files[0]);
 // 파일 선택 처리 함수
 function handleFileSelect(e) {
 const files = e.target.files;
-if (files.length > 0) {
-handleFile(files[0]);
-}
+  if (files.length > 0) {
+  handleFile(files[0]);
+  }
 }
 
 // 파일 처리 함수
 function handleFile(file) {
-// 파일 유형 검사
-if (!file.type.startsWith('video/')) {
-alert('비디오 파일만 업로드할 수 있습니다.');
-return;
+  // 파일 유형 검사
+  if (!file.type.startsWith('video/')) {
+  alert('비디오 파일만 업로드할 수 있습니다.');
+  return;
 }
 
 // 파일 크기 검사 (500MB 제한)
@@ -498,14 +505,14 @@ fileInput.value = '';
 });
 
 // 자막 다운로드 버튼 클릭 시
-downloadBtn.addEventListener('click', () => {
-const format = formatSelect.value;
-const content = captionTextarea.value;
+// downloadBtn.addEventListener('click', () => {
+// const format = formatSelect.value;
+//const content = captionTextarea.value;
 
-if (!content.trim()) {
-alert('다운로드할 자막이 없습니다.');
-return;
-}
+// if (!content.trim()) {
+// alert('다운로드할 자막이 없습니다.');
+// return;
+// }
 
 // 파일 이름 설정
 const filename = `captions.${format}`;
@@ -526,6 +533,13 @@ a.click();
 // 정리
 document.body.removeChild(a);
 URL.revokeObjectURL(url);
+
+// 작업 항목 클릭
+tasksList.addEventListener('click', (e) => {
+  const taskItem = e.target.closest('.task-item'); // task 항목 class
+  if (!taskItem) return;
+  const taskId = taskItem.dataset.id; // <div class="task-item" data-id="{{id}}">...
+  window.location.href = `/STT/task/${taskId}/`;
 });
 
 // 슬라이더 이벤트 리스너 등록

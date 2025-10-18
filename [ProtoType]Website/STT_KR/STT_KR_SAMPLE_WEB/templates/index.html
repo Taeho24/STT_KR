@@ -150,29 +150,26 @@
 
             </section>
 
-            <!-- 자막 섹션 -->
+            <!-- 작업 리스트 섹션 -->
             <section class="caption-section" id="caption-section">
-                <h2 class="caption-title">생성된 자막</h2>
+                <h2 class="tasks-title">작업 목록</h2>
                 
                 <!-- 로딩 표시 -->
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p>자막을 생성 중입니다. 잠시만 기다려주세요...</p>
+                    <p>작업 목록을 불러오는 중입니다...</p>
                 </div>
                 
-                <!-- 자막 내용 -->
-                <div class="caption-content" id="caption-content">
-                    <textarea class="caption-textarea" id="caption-textarea" placeholder="자막이 여기에 표시됩니다..."></textarea>
-                    <div class="caption-controls">
-                        <button class="download-btn" id="download-btn">자막 다운로드</button>
-                        <div>
-                            <label for="format-select">형식:</label>
-                            <select class="format-select" id="format-select">
-                                <option value="srt">SRT</option>
-                                <option value="vtt">VTT</option>
-                                <option value="txt">TXT</option>
-                            </select>
-                        </div>
+                <!-- 작업 목록 -->
+                <div class="tasks-content" id="tasks-content">
+                    <div class="tasks-list" id="tasks-list">
+                        <!-- 작업 항목들이 동적으로 생성됩니다 -->
+                    </div>
+                    
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>아직 생성된 자막이 없습니다.</p>
+                        <p class="empty-description">동영상을 업로드하고 자막을 생성해보세요!</p>
                     </div>
                 </div>
             </section>
