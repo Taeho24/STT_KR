@@ -504,36 +504,6 @@ captionSection.style.display = 'none';
 fileInput.value = '';
 });
 
-// 자막 다운로드 버튼 클릭 시
-// downloadBtn.addEventListener('click', () => {
-// const format = formatSelect.value;
-//const content = captionTextarea.value;
-
-// if (!content.trim()) {
-// alert('다운로드할 자막이 없습니다.');
-// return;
-// }
-
-// 파일 이름 설정
-const filename = `captions.${format}`;
-
-// Blob 생성
-const blob = new Blob([content], { type: 'text/plain' });
-
-// 다운로드 링크 생성
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = filename;
-
-// 링크 클릭하여 다운로드 시작
-document.body.appendChild(a);
-a.click();
-
-// 정리
-document.body.removeChild(a);
-URL.revokeObjectURL(url);
-
 // 작업 항목 클릭
 tasksList.addEventListener('click', (e) => {
   const taskItem = e.target.closest('.task-item'); // task 항목 class
