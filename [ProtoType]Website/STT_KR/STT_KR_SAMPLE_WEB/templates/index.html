@@ -15,6 +15,10 @@
         <div class="container">
             <h1 class="title">LiveCaption</h1>
             <p class="subtitle">동영상 자막 자동 생성 서비스</p>
+
+            <div style="margin-top: 20px;">
+                <a href="/STT/task-list/1/" class="task-list-btn">작업 목록 확인</a>
+            </div>
         </div>
     </header>
 
@@ -147,34 +151,6 @@
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
                 </div>
-
-            </section>
-
-            <!-- 자막 섹션 -->
-            <section class="caption-section" id="caption-section">
-                <h2 class="caption-title">생성된 자막</h2>
-                
-                <!-- 로딩 표시 -->
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>자막을 생성 중입니다. 잠시만 기다려주세요...</p>
-                </div>
-                
-                <!-- 자막 내용 -->
-                <div class="caption-content" id="caption-content">
-                    <textarea class="caption-textarea" id="caption-textarea" placeholder="자막이 여기에 표시됩니다..."></textarea>
-                    <div class="caption-controls">
-                        <button class="download-btn" id="download-btn">자막 다운로드</button>
-                        <div>
-                            <label for="format-select">형식:</label>
-                            <select class="format-select" id="format-select">
-                                <option value="srt">SRT</option>
-                                <option value="vtt">VTT</option>
-                                <option value="txt">TXT</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
             </section>
         </div>
     </div>
@@ -187,6 +163,10 @@
     </footer>
 
     <!-- 자바스크립트 -->
+    <script>
+        // Django 템플릿 변수를 사용하여 사용자 ID를 JS 변수에 저장
+        const USER_ID = "{{ user_id }}"; 
+    </script>
     <script type="module" src="{% static 'js/main.js' %}"></script>
 
 </body>

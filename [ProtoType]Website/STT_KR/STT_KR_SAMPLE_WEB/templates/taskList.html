@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveCaption - 작업 목록</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1 class="title">LiveCaption</h1>
+            <p class="subtitle">작업 목록</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="detail-navigation">
+                <a href="/STT/" class="back-btn">← 새로운 자막 생성</a>
+            </div>
+
+            <section class="task-list-section">
+                <h2 class="task-info-title">내 작업 목록</h2>
+                
+                <div class="tasks-container" id="tasks-container">
+                    {% for task in tasks %}
+                        <a href="{% url 'task_detail' task_id=task.task_id %}" class="task-list-item status-{{ task.status|lower }}">
+                            <div class="task-item-left">
+                                <span class="task-title">작업 ID: {{ task.task_id|slice:":8" }}...</span>
+                                <span class="task-timestamp">생성 순번: #{{ task.timestamp_id }}</span>
+                            </div>
+                            <div class="task-item-right">
+                                <span class="task-status status-{{ task.status|lower }}">{{ task.status }}</span>
+                            </div>
+                        </a>
+                        {% empty %}
+                        <div class="empty-list-state">
+                            <p>아직 등록된 작업이 없습니다.</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 LiveCaption.</p>
+        </div>
+    </footer>
+
+    <script>
+        // views.py에서 전달받은 값
+        const USER_ID = "{{ user_id }}";
+    </script>
+    <script type="module" src="{% static 'js/taskList.js' %}"></script>
+</body>
+</html>

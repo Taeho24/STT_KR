@@ -8,9 +8,11 @@ from .audio_analyzer import AudioAnalyzer
 from .emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
 from .srt_subtitle_generator import SRTSubtitleGenerator
 from .utils import split_segment_by_max_words
-from .subtitle_config import load_subtitle_settings
 from django.conf import settings
 from .model_cache import ModelCache
+from django.db.models import ObjectDoesNotExist
+from django.shortcuts import get_object_or_404
+from ..models import UserTask, TaskInfo
 
 class SubtitleGenerator:
     def __init__(
@@ -47,6 +49,20 @@ class SubtitleGenerator:
             raise FileNotFoundError(f"입력 오디오 파일을 찾을 수 없습니다: {self.audio_path}\n"
                                 f"현재 작업 디렉토리: {os.getcwd()}\n"
                                 f"입력된 경로: {self.audio_path}")
+    
+    def _load_subtitle_settings(self, task_id):
+        # Task ID를 사용하여 TaskInfo 레코드를 조회하고 config 데이터를 반환
+        try:
+            user_task = get_object_or_404(UserTask, task_id=task_id)
+            task_info = TaskInfo.objects.get(task=user_task)
+            
+            # config는 JSONField이므로 바로 딕셔너리 형태로 반환됩니다.
+            return task_info.config
+            
+        except ObjectDoesNotExist:
+            print(f"오류: Task ID {task_id}에 대한 설정 데이터를 DB에서 찾을 수 없습니다.")
+            # 찾지 못하면 기본 설정 또는 빈 딕셔너리를 반환하여 오류 방지
+            return {}
 
     def process_video(self, file_format:str = "srt"):
         # WhisperX 모델 불러오기
@@ -202,8 +218,38 @@ class SubtitleGenerator:
         else:
             print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
-    def generate_srt_subtitle(self):
-        subtitle_settings = load_subtitle_settings(self.id)
+    def get_speaker_name(self):
+        segments = self._load_segments()
+        speaker_names = set()
+
+        for segment in segments:
+            for s in segment['words']:
+                speaker_names.add(s['speaker'])
+        
+        return list(speaker_names)
+
+    def replace_speaker_name(self, new_names: json, task_id):
+        """
+        new_names: {"SPEAKER_00": "NEW_NAME", }
+        """
+        segments = self._load_segments()
+
+        for segment in segments:
+            for word_data in segment.get('words', []):
+                # 딕셔너리 조회로 스피커 이름 존재 여부 확인
+                current_name = word_data.get('speaker')
+                if current_name in new_names:
+                    # 딕셔너리의 새 이름으로 즉시 교체
+                    word_data['speaker'] = new_names[current_name]
+        
+        self._segments_to_json(segments)
+
+        srt_subtitle = self.generate_srt_subtitle(task_id)
+
+        return srt_subtitle
+
+    def generate_srt_subtitle(self, task_id):
+        subtitle_settings = self._load_subtitle_settings(task_id)
 
         srt_subtitle_generator = SRTSubtitleGenerator(subtitle_settings=subtitle_settings)
 
