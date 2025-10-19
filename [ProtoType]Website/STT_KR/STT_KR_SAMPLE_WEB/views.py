@@ -35,7 +35,52 @@ def get_or_create_anonymous_user(request):
     request.session['anon_user_id'] = user.id
     return user
 
-def get_task_status(request, task_id):
+def get_task_list_api(request, user_id):
+    """
+    작업 목록 데이터를 JSON 형태로 반환하는 API 엔드포인트입니다.
+    """
+    # 사용자가 존재하는지 확인
+    user = User.objects.filter(id=user_id).first()
+
+    if not user:
+        # 사용자가 없으면 빈 목록 반환 (404 대신 200 OK와 빈 리스트 반환)
+        return JsonResponse({'user_id': user_id, 'tasks': []})
+    
+    task_list = []
+    user_tasks = UserTask.objects.filter(user=user).order_by('-id')
+    
+    for user_task in user_tasks:
+        current_status = user_task.status
+        
+        # Celery 상태 조회 및 DB 업데이트 로직은 그대로 유지
+        try:
+            result = AsyncResult(user_task.task_id)
+            celery_status = result.status
+            
+            if user_task.status != celery_status:
+                user_task.status = celery_status
+                user_task.save()
+            
+            current_status = celery_status
+            
+        except KombuOperationalError:
+            print(f"경고: Celery 브로커 연결 실패. Task ID {user_task.task_id}의 DB 상태 사용.")
+        except Exception as e:
+            print(f"경고: Celery 조회 중 오류 ({e}). Task ID {user_task.task_id}의 DB 상태 사용.")
+            
+        
+        task_list.append({
+            "task_id": user_task.task_id,
+            "status": current_status, 
+            "timestamp_id": user_task.id, 
+        })
+            
+    return JsonResponse({
+        'user_id': user_id,
+        'tasks': task_list,
+    })
+
+def get_task_status_api(request, task_id):
     """
     Client-side Polling API: Celery 작업의 현재 상태를 반환합니다.
     - 작업 진행 중: {"status": "processing"} (JsonResponse)
@@ -184,25 +229,25 @@ def generate_caption(request):
         print("자막 생성 중 오류:", e)
         return HttpResponseServerError("자막 생성 실패")
 
-def get_task_list(request, user_id):
+def task_list(request, user_id):
     # 사용자가 존재하는지 확인
     user = User.objects.filter(id=user_id).first()
 
     if not user:
-        return render(request, 'taskID.html', {'user_id': user_id, 'tasks': []})
+        # 사용자가 없으면 빈 목록 반환 (404 대신 200 OK와 빈 리스트 반환)
+        return JsonResponse({'user_id': user_id, 'tasks': []})
     
     task_list = []
     user_tasks = UserTask.objects.filter(user=user).order_by('-id')
     
     for user_task in user_tasks:
-        current_status = user_task.status  # DB의 저장된 상태를 기본값으로 사용
+        current_status = user_task.status
         
+        # Celery 상태 조회 및 DB 업데이트 로직은 그대로 유지
         try:
-            # Celery (Redis) 연결을 시도하고 최신 상태를 가져옵니다.
             result = AsyncResult(user_task.task_id)
             celery_status = result.status
             
-            # DB 상태와 Celery 상태가 다르면 DB를 업데이트합니다.
             if user_task.status != celery_status:
                 user_task.status = celery_status
                 user_task.save()
@@ -210,12 +255,8 @@ def get_task_list(request, user_id):
             current_status = celery_status
             
         except KombuOperationalError:
-            # Redis 또는 Celery 연결 실패 시
             print(f"경고: Celery 브로커 연결 실패. Task ID {user_task.task_id}의 DB 상태 사용.")
-            # current_status는 DB 상태 그대로 유지됨
-            
         except Exception as e:
-            # 다른 Celery 관련 오류 처리 (예: Timeouts)
             print(f"경고: Celery 조회 중 오류 ({e}). Task ID {user_task.task_id}의 DB 상태 사용.")
             
         
@@ -224,13 +265,13 @@ def get_task_list(request, user_id):
             "status": current_status, 
             "timestamp_id": user_task.id, 
         })
-            
+    
     context = {
         'user_id': user_id,
         'tasks': task_list,
     }
     
-    return render(request, 'taskIDList.html', context)
+    return render(request, 'taskList.html', context)
 
 def task_detail(request, task_id):
     try:

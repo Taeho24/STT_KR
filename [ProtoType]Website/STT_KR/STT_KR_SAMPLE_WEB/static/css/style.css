@@ -662,7 +662,7 @@ header {
 }
 
 .download-btn {
-  background-color: #4a00e0;
+  background-color: #4dabf7;
   color: white;
   border: none;
   padding: 12px 25px;
@@ -673,11 +673,11 @@ header {
 }
 
 .download-btn:hover {
-  background-color: #3900b3;
+  background-color: rgb(0, 139, 182);
 }
 
 .delete-btn {
-  background-color: #ff2e2e;
+  background-color: #df4f45;
   color: white;
   border: none;
   padding: 12px 25px;
@@ -688,7 +688,22 @@ header {
 }
 
 .delete-btn:hover {
-  background-color: #d60000;
+  background-color: #c92525;
+}
+
+.retry-btn {
+  background-color: #ffe02e;
+  color: white;
+  border: none;
+  padding: 4px 5px;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.retry-btn:hover {
+  background-color: #d6af00;
 }
 
 .format-select {
