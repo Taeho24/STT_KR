@@ -4,108 +4,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LiveCaption - 자막 상세보기</title>
+    <title>LiveCaption - 작업 목록</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
-    <!-- 헤더 섹션 -->
     <header>
         <div class="container">
             <h1 class="title">LiveCaption</h1>
-            <p class="subtitle">동영상 자막 자동 생성 서비스</p>
+            <p class="subtitle">작업 목록</p>
         </div>
     </header>
 
-    <!-- 메인 콘텐츠 -->
     <div class="container">
         <div class="main-content">
-            <!-- 네비게이션 -->
             <div class="detail-navigation">
-                <a href="/STT/" class="back-btn">← 작업 목록으로 돌아가기</a>
+                <a href="/STT/" class="back-btn">← 새로운 자막 생성</a>
             </div>
 
-            <!-- 작업 정보 섹션 -->
-            <section class="task-info-section">
-                <h2 class="task-info-title">자막 정보</h2>
-                <div class="task-info-grid">
-                    <div class="task-info-item">
-                        <span class="info-label">작업 ID:</span>
-                        <span class="info-value" id="task-id">-</span>
-                    </div>
-                    <div class="task-info-item">
-                        <span class="info-label">파일명:</span>
-                        <span class="info-value" id="file-name">-</span>
-                    </div>
-                    <div class="task-info-item">
-                        <span class="info-label">생성 시간:</span>
-                        <span class="info-value" id="created-time">-</span>
-                    </div>
-                    <div class="task-info-item">
-                        <span class="info-label">상태:</span>
-                        <span class="info-value status" id="task-status">-</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 자막 내용 섹션 -->
-            <section class="caption-detail-section">
-                <h2 class="caption-detail-title">생성된 자막</h2>
+            <section class="task-list-section">
+                <h2 class="task-info-title">내 작업 목록</h2>
                 
-                <!-- 로딩 표시 -->
-                <div class="loading" id="loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>자막을 불러오는 중입니다...</p>
-                </div>
-                
-                <!-- 에러 표시 -->
-                <div class="error-state" id="error-state" style="display: none;">
-                    <div class="error-icon">⚠️</div>
-                    <p class="error-message" id="error-message">자막을 불러오는데 실패했습니다.</p>
-                    <button class="retry-btn" id="retry-btn">다시 시도</button>
-                </div>
-                
-                <!-- 자막 내용 -->
-                <div class="caption-content" id="caption-content">
-                    <div class="caption-editor">
-                        <textarea 
-                            class="caption-textarea" 
-                            id="caption-textarea" 
-                            placeholder="자막이 여기에 표시됩니다..."
-                            spellcheck="false"
-                        ></textarea>
-                    </div>
-                    
-                    <div class="caption-controls">
-                        <button class="download-btn" id="download-btn">
-                            <span class="btn-icon">⬇️</span>
-                            자막 다운로드
-                        </button>
-                        <div class="format-selector">
-                            <label for="format-select">형식:</label>
-                            <select class="format-select" id="format-select">
-                                <option value="srt">SRT</option>
-                                <option value="vtt">VTT</option>
-                                <option value="txt">TXT</option>
-                            </select>
+                <div class="tasks-container">
+                {% for task in tasks %}
+                    <a href="{% url 'task_detail' task_id=task.task_id %}" class="task-list-item status-{{ task.status|lower }}">
+                        <div class="task-item-left">
+                            <span class="task-title">작업 ID: {{ task.task_id|slice:":8" }}...</span>
+                            <span class="task-timestamp">생성 순번: #{{ task.timestamp_id }}</span>
                         </div>
-                        <button class="copy-btn" id="copy-btn">
-                            <span class="btn-icon">📋</span>
-                            클립보드에 복사
-                        </button>
+                        <div class="task-item-right">
+                            <span class="task-status status-{{ task.status|lower }}">{{ task.status }}</span>
+                        </div>
+                    </a>
+                {% empty %}
+                    <div class="empty-list-state">
+                        <p>아직 등록된 작업이 없습니다.</p>
                     </div>
+                {% endfor %}
                 </div>
             </section>
         </div>
     </div>
 
-    <!-- 푸터 -->
     <footer>
         <div class="container">
             <p>&copy; 2025 LiveCaption.</p>
         </div>
     </footer>
-
-    <!-- 자바스크립트 -->
-    <script type="module" src="{% static 'js/task-detail.js' %}"></script>
 </body>
 </html>

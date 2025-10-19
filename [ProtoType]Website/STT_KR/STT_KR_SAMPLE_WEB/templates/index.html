@@ -15,6 +15,10 @@
         <div class="container">
             <h1 class="title">LiveCaption</h1>
             <p class="subtitle">동영상 자막 자동 생성 서비스</p>
+
+            <div style="margin-top: 20px;">
+                <a href="/STT/task-list/1/" class="task-list-btn">작업 목록 확인</a>
+            </div>
         </div>
     </header>
 
@@ -147,31 +151,6 @@
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
                 </div>
-
-            </section>
-
-            <!-- 작업 리스트 섹션 -->
-            <section class="caption-section" id="caption-section">
-                <h2 class="tasks-title">작업 목록</h2>
-                
-                <!-- 로딩 표시 -->
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>작업 목록을 불러오는 중입니다...</p>
-                </div>
-                
-                <!-- 작업 목록 -->
-                <div class="tasks-content" id="tasks-content">
-                    <div class="tasks-list" id="tasks-list">
-                        <!-- 작업 항목들이 동적으로 생성됩니다 -->
-                    </div>
-                    
-                    <div class="empty-state" id="empty-state">
-                        <div class="empty-icon">📋</div>
-                        <p>아직 생성된 자막이 없습니다.</p>
-                        <p class="empty-description">동영상을 업로드하고 자막을 생성해보세요!</p>
-                    </div>
-                </div>
             </section>
         </div>
     </div>
@@ -184,6 +163,10 @@
     </footer>
 
     <!-- 자바스크립트 -->
+    <script>
+        // Django 템플릿 변수를 사용하여 사용자 ID를 JS 변수에 저장
+        const USER_ID = "{{ user_id }}"; 
+    </script>
     <script type="module" src="{% static 'js/main.js' %}"></script>
 
 </body>

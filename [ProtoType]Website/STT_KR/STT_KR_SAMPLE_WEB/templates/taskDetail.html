@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveCaption - 자막 상세 정보</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1 class="title">LiveCaption</h1>
+            <p class="subtitle">작업 상세 정보</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="detail-navigation">
+                <a href="{% url 'get_task_list' user_id=user_id %}" class="back-btn">← 작업 목록으로 돌아가기</a>
+            </div>
+
+            <section class="task-info-section">
+                <h2 class="task-info-title">자막 정보</h2>
+                <div class="task-info-grid">
+                    <div class="task-info-item">
+                        <span class="info-label">작업 ID:</span>
+                        <span class="info-value">{{ task_id }}</span>
+                    </div>
+                    <div class="task-info-item">
+                        <span class="info-label">생성 순번:</span>
+                        <span class="info-value">#{{ created_time }}</span>
+                    </div>
+                    <div class="task-info-item">
+                        <span class="info-label">상태:</span>
+                        <span class="info-value status status-{{ status|lower }}" id="task-status">{{ status }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="caption-detail-section">
+                <h2 class="caption-detail-title">생성된 자막</h2>
+                
+                {% if status|lower == 'pending' or status|lower == 'started' %}
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p id="loading-status-text">자막 생성 작업이 {{ status }} 상태입니다. 잠시만 기다려주세요...</p>
+                </div>
+                <button class="delete-btn">삭제</button>
+                {% endif %}
+                
+                {% if status|lower == 'failure' or status|lower == 'revoked' %}
+                <div class="error-state" id="error-state">
+                    <div class="error-icon">⚠️</div>
+                    <p class="error-message" id="error-message">자막 생성에 실패했습니다. (오류 코드: {{ task_id }})</p>
+                    <button class="retry-btn" id="retry-btn">다시 시도</button>
+                </div>
+                <button class="delete-btn">삭제</button>
+                {% endif %}
+                
+                {% if status|lower == 'success' %}
+                <div class="caption-content" id="caption-content" style="display: block;">
+                    <div class="caption-editor">
+                        <textarea 
+                            class="caption-textarea" 
+                            id="caption-textarea" 
+                            spellcheck="false"
+                            {% if subtitle %}readonly{% endif %}
+                            >{{ subtitle }}</textarea>
+                    </div>
+                    
+                    <div class="caption-controls">
+                        <button class="download-btn" id="download-btn">
+                            다운로드
+                        </button>
+                        <button class="delete-btn">
+                            삭제
+                        </button>
+                        <div class="format-selector">
+                            <label for="format-select">형식:</label>
+                            <select class="format-select" id="format-select">
+                                <option value="srt">SRT</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 LiveCaption.</p>
+        </div>
+    </footer>
+
+    <script>
+        // views.py에서 전달받은 값
+        const USER_ID = "{{ user_id }}";
+        const TASK_ID = "{{ task_id }}";
+        const INITIAL_STATUS = "{{ status|lower }}";
+    </script>
+    <script type="module" src="{% static 'js/taskDetail.js' %}"></script>
+</body>
+</html>

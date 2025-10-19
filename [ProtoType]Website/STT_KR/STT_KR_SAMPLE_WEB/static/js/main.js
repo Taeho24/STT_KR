@@ -1,5 +1,5 @@
-import { FFmpeg } from '/static/@ffmpeg/ffmpeg/dist/esm/index.js'
-import { fetchFile } from '/static/@ffmpeg/util/dist/esm/index.js'
+import { FFmpeg } from '/STT_KR_SAMPLE_WEB/static/@ffmpeg/ffmpeg/dist/esm/index.js'
+import { fetchFile } from '/STT_KR_SAMPLE_WEB/static/@ffmpeg/util/dist/esm/index.js'
 
 // 폰트 크기 상태 관리
 const fontSizes = {
@@ -42,12 +42,6 @@ const videoPreview = document.getElementById('video-preview');
 const previewBtn = document.getElementById('preview-btn');
 const generateBtn = document.getElementById('generate-btn');
 const cancelBtn = document.getElementById('cancel-btn');
-const captionSection = document.getElementById('caption-section');
-const loading = document.getElementById('loading');
-const captionContent = document.getElementById('caption-content');
-const captionTextarea = document.getElementById('caption-textarea');
-const downloadBtn = document.getElementById('download-btn');
-const formatSelect = document.getElementById('format-select');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -241,10 +235,7 @@ body: formData,
 });
 if (!res.ok) throw new Error('서버 오류');
 
-const captions = await res.text();
-captionTextarea.value = captions;
-loading.style.display = 'none';
-captionContent.style.display = 'block';
+window.location.href = `/STT/task-list/${USER_ID}/`;
 } catch (err) {
 console.error('자막 생성 오류:', err);
 alert('자막 생성에 실패했습니다.');
@@ -476,11 +467,6 @@ applySubtitles();
 
 // 자막 생성 버튼 클릭 시
 generateBtn.addEventListener('click', async () => {
-captionSection.style.display = 'block';
-loading.style.display = 'block';
-captionContent.style.display = 'none';
-captionSection.scrollIntoView({ behavior: 'smooth' });
-
 await generateCaptions();
 });
 
@@ -556,41 +542,9 @@ videoPreview.src = '';
 
 // 섹션 숨기기
 previewSection.style.display = 'none';
-captionSection.style.display = 'none';
 
 // 파일 입력 초기화
 fileInput.value = '';
-});
-
-// 자막 다운로드 버튼 클릭 시
-downloadBtn.addEventListener('click', () => {
-const format = formatSelect.value;
-const content = captionTextarea.value;
-
-if (!content.trim()) {
-alert('다운로드할 자막이 없습니다.');
-return;
-}
-
-// 파일 이름 설정
-const filename = `captions.${format}`;
-
-// Blob 생성
-const blob = new Blob([content], { type: 'text/plain' });
-
-// 다운로드 링크 생성
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = filename;
-
-// 링크 클릭하여 다운로드 시작
-document.body.appendChild(a);
-a.click();
-
-// 정리
-document.body.removeChild(a);
-URL.revokeObjectURL(url);
 });
 
 // 슬라이더 이벤트 리스너 등록

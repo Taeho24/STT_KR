@@ -593,6 +593,14 @@ header {
 }
 
 /* 자막 섹션 스타일 */
+.caption-detail-section {
+    /* 기존 캡션 섹션과 분리하기 위한 상단 여백 */
+    padding-top: 20px; 
+    
+    /* 섹션과 푸터 사이에 간격을 만들기 위한 여백 */
+    margin-bottom: 50px;
+}
+
 .caption-section {
   padding: 30px;
   display: none;
@@ -666,6 +674,21 @@ header {
 
 .download-btn:hover {
   background-color: #3900b3;
+}
+
+.delete-btn {
+  background-color: #ff2e2e;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.delete-btn:hover {
+  background-color: #d60000;
 }
 
 .format-select {
@@ -785,4 +808,157 @@ footer {
   .emotion-colors-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+.task-list-btn {
+    display: inline-block;
+    background-color: #f1f3f5;
+    color: #4a00e0;
+    text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: 2px solid #4a00e0;
+    transition: all 0.3s ease;
+}
+
+.task-list-btn:hover {
+    background-color: #4a00e0;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(74, 0, 224, 0.3);
+}
+
+/* 뒤로 가기 버튼 컨테이너 */
+.detail-navigation {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* 뒤로 가기 링크/버튼 */
+.back-btn {
+    color: #4a00e0;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.back-btn:hover {
+    color: #667eea;
+}
+
+/* 작업 정보 섹션 제목 */
+.task-info-title,
+.tasks-title,
+.caption-detail-title {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: #4a00e0;
+    text-align: center;
+}
+
+/* 작업 상세 정보 그리드 */
+.task-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+/* 작업 정보 개별 항목 */
+.task-info-item {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: white;
+}
+
+.info-label {
+    display: block;
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.info-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    word-break: break-all; /* 긴 task_id가 줄바꿈되도록 */
+}
+
+/* 작업 목록 항목 (taskID.html) */
+.tasks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.task-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #333;
+    transition: all 0.2s ease;
+}
+
+.task-list-item:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+    border-color: #667eea;
+}
+
+.task-title {
+    font-weight: 600;
+}
+
+.task-timestamp {
+    font-size: 0.85rem;
+    color: #777;
+    margin-left: 10px;
+}
+
+/* 동적 상태 표시 */
+.task-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background-color: #e9ecef;
+}
+
+.status-pending, .status-started {
+    color: #ffc107; /* 주황색/노란색 계열 */
+}
+.status-success {
+    color: #28a745; /* 녹색 계열 */
+    background-color: #d4edda;
+}
+.status-failure, .status-revoked {
+    color: #dc3545; /* 빨간색 계열 */
+    background-color: #f8d7da;
+}
+
+/* 에러 상태 및 로딩 스타일 (기존 스타일 재사용) */
+.error-state {
+    text-align: center;
+    padding: 30px;
+    border: 1px dashed #dc3545;
+    border-radius: 8px;
+    background-color: #fff5f5;
+    margin-top: 20px;
+}
+
+.error-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
 }
