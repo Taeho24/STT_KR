@@ -114,7 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 이벤트 연결
-    downloadBtn.addEventListener('click', downloadTask);
+    if (downloadBtn) { 
+        downloadBtn.addEventListener('click', downloadTask);
+    }
 
     deleteButtons.forEach(button => {
         button.addEventListener('click', deleteTask);
