@@ -151,7 +151,7 @@ def generate_caption(request):
         # 비동기 방식
         #=================================================================================================================================
         # 오디오 처리
-        task = process_and_generate_srt_task.delay(audio_path=wsl_path, subtitle_settings=subtitle_settings, proper_nouns=proper_nouns)
+        task = process_and_generate_srt_task.delay(audio_path=wsl_path, proper_nouns=proper_nouns)
 
         # 작업 ID와 사용자 정보를 DB에 저장하는 로직 추가
         user = get_or_create_anonymous_user(request)
@@ -230,7 +230,7 @@ def get_task_list(request, user_id):
         'tasks': task_list,
     }
     
-    return render(request, 'taskID.html', context)
+    return render(request, 'taskIDList.html', context)
 
 def task_detail(request, task_id):
     try:
