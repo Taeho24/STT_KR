@@ -44,10 +44,6 @@ const generateBtn = document.getElementById('generate-btn');
 const cancelBtn = document.getElementById('cancel-btn');
 const captionSection = document.getElementById('caption-section');
 const loading = document.getElementById('loading');
-const captionContent = document.getElementById('caption-content');
-const captionTextarea = document.getElementById('caption-textarea');
-const downloadBtn = document.getElementById('download-btn');
-const formatSelect = document.getElementById('format-select');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -63,6 +59,9 @@ const highlightColor = document.getElementById('highlight-color');
 const emotionColorsGrid = document.getElementById('emotion-colors-grid');
 const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
 const resethighlightBtn = document.getElementById('reset-highlight-btn');
+
+const tasksList = document.getElementById('tasks-list');
+const tasksContent = document.getElementById('tasks-content');
 
 const ffmpeg = new FFmpeg();
 await ffmpeg.load();
@@ -242,9 +241,9 @@ body: formData,
 if (!res.ok) throw new Error('서버 오류');
 
 const captions = await res.text();
-captionTextarea.value = captions;
+tasksList.value = captions;
 loading.style.display = 'none';
-captionContent.style.display = 'block';
+tasksContent.style.display = 'block';
 } catch (err) {
 console.error('자막 생성 오류:', err);
 alert('자막 생성에 실패했습니다.');
@@ -478,7 +477,7 @@ applySubtitles();
 generateBtn.addEventListener('click', async () => {
 captionSection.style.display = 'block';
 loading.style.display = 'block';
-captionContent.style.display = 'none';
+tasksContent.style.display = 'none';
 captionSection.scrollIntoView({ behavior: 'smooth' });
 
 await generateCaptions();
@@ -562,35 +561,12 @@ captionSection.style.display = 'none';
 fileInput.value = '';
 });
 
-// 자막 다운로드 버튼 클릭 시
-downloadBtn.addEventListener('click', () => {
-const format = formatSelect.value;
-const content = captionTextarea.value;
-
-if (!content.trim()) {
-alert('다운로드할 자막이 없습니다.');
-return;
-}
-
-// 파일 이름 설정
-const filename = `captions.${format}`;
-
-// Blob 생성
-const blob = new Blob([content], { type: 'text/plain' });
-
-// 다운로드 링크 생성
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = filename;
-
-// 링크 클릭하여 다운로드 시작
-document.body.appendChild(a);
-a.click();
-
-// 정리
-document.body.removeChild(a);
-URL.revokeObjectURL(url);
+// 작업 항목 클릭
+tasksList.addEventListener('click', (e) => {
+  const taskItem = e.target.closest('.task-item'); // task 항목 class
+  if (!taskItem) return;
+  const taskId = taskItem.dataset.id; // <div class="task-item" data-id="{{id}}">...
+  window.location.href = `/STT/task/${taskId}/`;
 });
 
 // 슬라이더 이벤트 리스너 등록
