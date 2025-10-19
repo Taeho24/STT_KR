@@ -1,6 +1,3 @@
-const downloadBtn = document.getElementById('download-btn');
-const allDeleteButtons = document.querySelectorAll('.delete-btn');
-
 document.addEventListener('DOMContentLoaded', () => {
     // UI 요소 (로딩, 상태)
     const taskStatusElement = document.getElementById('task-status');
@@ -8,10 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingElement = document.getElementById('loading');
     const errorStateElement = document.getElementById('error-state');
 
+    const formatSelect = document.getElementById('format-select');
+
+    const downloadBtn = document.getElementById('download-btn'); 
     const deleteButtons = document.querySelectorAll('.delete-btn');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', deleteTask);
-    });
 
     // 상태를 조회하고 업데이트하는 폴링 함수
     const checkStatus = async () => {
@@ -55,95 +52,75 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(checkStatus, 5000);
         }
     };
+
+    const deleteTask = async () => { 
+        if (!confirm(`정말로 작업 ID ${TASK_ID}를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+            return;
+        }
+
+        try {
+            // 서버에 삭제 요청 (POST 메서드 사용)
+            const response = await fetch(`/STT/delete-task/${TASK_ID}/`, {
+                method: 'POST',
+                headers: {
+                    // Django의 CSRF 보호를 위한 헤더가 필요할 수 있습니다.
+                    // 이 뷰도 @csrf_exempt로 처리할 예정이므로 여기서는 생략합니다.
+                },
+            });
+
+            if (response.ok) {
+                alert('작업이 성공적으로 삭제되었습니다.');
+                // 삭제 성공 시 작업 목록 페이지로 이동
+                window.location.href = `/STT/task-list/${USER_ID}/`; 
+            } else {
+                const errorText = await response.text();
+                alert(`작업 삭제 실패: ${errorText}`);
+            }
+        } catch (error) {
+            console.error('삭제 요청 중 오류:', error);
+            alert('네트워크 오류 또는 서버 통신 실패로 삭제할 수 없습니다.');
+        }
+    };
+
+    // 다운로드 로직 (downloadTask 함수를 만들어 내부로 이동)
+    const downloadTask = () => {
+        const format = formatSelect.value;
+        const content = captionTextarea.value;
+
+        if (!content.trim()) {
+            alert('다운로드할 자막이 없습니다.');
+            return;
+        }
+
+        // 파일 이름 설정
+        const filename = `captions.${format}`;
+
+        // Blob 생성
+        const blob = new Blob([content], { type: 'text/plain' });
+
+        // 다운로드 링크 생성
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+
+        // 링크 클릭하여 다운로드 시작
+        document.body.appendChild(a);
+        a.click();
+
+        // 정리
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // 이벤트 연결
+    downloadBtn.addEventListener('click', downloadTask);
+
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', deleteTask);
+    });
     
     // 초기 로딩 시작
     loadingElement.style.display = 'block';
     checkStatus();
-});
-
-const deleteTask = async (e) => {
-    if (!confirm(`정말로 작업 ID ${TASK_ID}를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
-        return;
-    }
-
-    try {
-        // 서버에 삭제 요청 (POST 메서드 사용)
-        const response = await fetch(`/STT/delete-task/${TASK_ID}/`, {
-            method: 'POST',
-            // ... (headers 생략)
-        });
-
-        if (response.ok) {
-            alert('작업이 성공적으로 삭제되었습니다.');
-            // 삭제 성공 시 작업 목록 페이지로 이동
-            window.location.href = `/STT/task-list/${USER_ID}/`; 
-        } else {
-            const errorText = await response.text();
-            alert(`작업 삭제 실패: ${errorText}`);
-        }
-    } catch (error) {
-        console.error('삭제 요청 중 오류:', error);
-        alert('네트워크 오류 또는 서버 통신 실패로 삭제할 수 없습니다.');
-    }
-};
-
-// 자막 다운로드 버튼 클릭 시
-downloadBtn.addEventListener('click', () => {
-    const format = formatSelect.value;
-    const content = captionTextarea.value;
-
-    if (!content.trim()) {
-        alert('다운로드할 자막이 없습니다.');
-        return;
-    }
-
-    // 파일 이름 설정
-    const filename = `captions.${format}`;
-
-    // Blob 생성
-    const blob = new Blob([content], { type: 'text/plain' });
-
-    // 다운로드 링크 생성
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-
-    // 링크 클릭하여 다운로드 시작
-    document.body.appendChild(a);
-    a.click();
-
-    // 정리
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-});
-
-// 자막 삭제 버튼 클릭 시
-deleteBtn.addEventListener('click', async () => {
-    if (!confirm(`정말로 작업 ID ${TASK_ID}를 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
-        return;
-    }
-
-    try {
-        // 서버에 삭제 요청 (POST 메서드 사용)
-        const response = await fetch(`/STT/delete-task/${TASK_ID}/`, {
-            method: 'POST',
-            headers: {
-                // Django의 CSRF 보호를 위한 헤더가 필요할 수 있습니다.
-                // 이 뷰도 @csrf_exempt로 처리할 예정이므로 여기서는 생략합니다.
-            },
-        });
-
-        if (response.ok) {
-            alert('작업이 성공적으로 삭제되었습니다.');
-            // 삭제 성공 시 작업 목록 페이지로 이동
-            window.location.href = `/STT/task-list/${USER_ID}/`; 
-        } else {
-            const errorText = await response.text();
-            alert(`작업 삭제 실패: ${errorText}`);
-        }
-    } catch (error) {
-        console.error('삭제 요청 중 오류:', error);
-        alert('네트워크 오류 또는 서버 통신 실패로 삭제할 수 없습니다.');
-    }
 });

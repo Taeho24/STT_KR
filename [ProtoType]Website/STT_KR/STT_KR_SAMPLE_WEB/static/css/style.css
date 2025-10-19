@@ -649,6 +649,7 @@ header {
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 1rem;
+  margin-top: 20px;
   margin-bottom: 20px;
   resize: vertical;
   font-family: monospace;
@@ -692,7 +693,7 @@ header {
 }
 
 .retry-btn {
-  background-color: #ffe02e;
+  background-color: #ddc018;
   color: white;
   border: none;
   padding: 4px 5px;
@@ -703,7 +704,7 @@ header {
 }
 
 .retry-btn:hover {
-  background-color: #d6af00;
+  background-color: #d3ac00;
 }
 
 .format-select {
@@ -971,6 +972,7 @@ footer {
     border-radius: 8px;
     background-color: #fff5f5;
     margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 .error-icon {
