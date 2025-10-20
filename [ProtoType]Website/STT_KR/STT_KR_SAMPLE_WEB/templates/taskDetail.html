@@ -4,108 +4,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LiveCaption - 자막 상세보기</title>
+    <title>LiveCaption - 자막 상세 정보</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
-    <!-- 헤더 섹션 -->
     <header>
         <div class="container">
             <h1 class="title">LiveCaption</h1>
-            <p class="subtitle">동영상 자막 자동 생성 서비스</p>
+            <p class="subtitle">작업 상세 정보</p>
         </div>
     </header>
 
-    <!-- 메인 콘텐츠 -->
     <div class="container">
         <div class="main-content">
-            <!-- 네비게이션 -->
             <div class="detail-navigation">
-                <a href="/STT/" class="back-btn">← 작업 목록으로 돌아가기</a>
+                <a href="{% url 'task_list' user_id=user_id %}" class="back-btn">← 작업 목록으로 돌아가기</a>
             </div>
 
-            <!-- 작업 정보 섹션 -->
             <section class="task-info-section">
                 <h2 class="task-info-title">자막 정보</h2>
                 <div class="task-info-grid">
                     <div class="task-info-item">
                         <span class="info-label">작업 ID:</span>
-                        <span class="info-value" id="task-id">-</span>
+                        <span class="info-value">{{ task_id }}</span>
                     </div>
                     <div class="task-info-item">
-                        <span class="info-label">파일명:</span>
-                        <span class="info-value" id="file-name">-</span>
-                    </div>
-                    <div class="task-info-item">
-                        <span class="info-label">생성 시간:</span>
-                        <span class="info-value" id="created-time">-</span>
+                        <span class="info-label">생성 순번:</span>
+                        <span class="info-value">#{{ created_time }}</span>
                     </div>
                     <div class="task-info-item">
                         <span class="info-label">상태:</span>
-                        <span class="info-value status" id="task-status">-</span>
+                        <span class="info-value status status-{{ status|lower }}" id="task-status">{{ status }}</span>
                     </div>
                 </div>
             </section>
 
-            <!-- 자막 내용 섹션 -->
             <section class="caption-detail-section">
                 <h2 class="caption-detail-title">생성된 자막</h2>
                 
-                <!-- 로딩 표시 -->
-                <div class="loading" id="loading" style="display: none;">
+                {% if status|lower == 'pending' or status|lower == 'started' %}
+                <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p>자막을 불러오는 중입니다...</p>
+                    <p id="loading-status-text">자막 생성 작업이 {{ status }} 상태입니다. 잠시만 기다려주세요...</p>
                 </div>
+                <button class="delete-btn">삭제</button>
+                {% endif %}
                 
-                <!-- 에러 표시 -->
-                <div class="error-state" id="error-state" style="display: none;">
+                {% if status|lower == 'failure' or status|lower == 'revoked' %}
+                <div class="error-state" id="error-state">
                     <div class="error-icon">⚠️</div>
-                    <p class="error-message" id="error-message">자막을 불러오는데 실패했습니다.</p>
+                    <p class="error-message" id="error-message">자막 생성에 실패했습니다. (오류 코드: {{ task_id }})</p>
                     <button class="retry-btn" id="retry-btn">다시 시도</button>
                 </div>
+                <button class="delete-btn">삭제</button>
+                {% endif %}
                 
-                <!-- 자막 내용 -->
-                <div class="caption-content" id="caption-content">
+                {% if status|lower == 'success' %}
+                <div class="caption-content" id="caption-content" style="display: block;">
                     <div class="caption-editor">
                         <textarea 
                             class="caption-textarea" 
                             id="caption-textarea" 
-                            placeholder="자막이 여기에 표시됩니다..."
                             spellcheck="false"
-                        ></textarea>
+                            {% if subtitle %}readonly{% endif %}
+                            >{{ subtitle }}</textarea>
                     </div>
                     
                     <div class="caption-controls">
                         <button class="download-btn" id="download-btn">
-                            <span class="btn-icon">⬇️</span>
-                            자막 다운로드
+                            다운로드
+                        </button>
+                        <button class="delete-btn">
+                            삭제
                         </button>
                         <div class="format-selector">
                             <label for="format-select">형식:</label>
                             <select class="format-select" id="format-select">
                                 <option value="srt">SRT</option>
-                                <option value="vtt">VTT</option>
-                                <option value="txt">TXT</option>
                             </select>
                         </div>
-                        <button class="copy-btn" id="copy-btn">
-                            <span class="btn-icon">📋</span>
-                            클립보드에 복사
-                        </button>
                     </div>
                 </div>
+                {% endif %}
             </section>
         </div>
     </div>
 
-    <!-- 푸터 -->
     <footer>
         <div class="container">
             <p>&copy; 2025 LiveCaption.</p>
         </div>
     </footer>
 
-    <!-- 자바스크립트 -->
-    <script type="module" src="{% static 'js/task-detail.js' %}"></script>
+    <script>
+        // views.py에서 전달받은 값
+        const USER_ID = "{{ user_id }}";
+        const TASK_ID = "{{ task_id }}";
+        const INITIAL_STATUS = "{{ status|lower }}";
+    </script>
+    <script type="module" src="{% static 'js/taskDetail.js' %}"></script>
 </body>
 </html>

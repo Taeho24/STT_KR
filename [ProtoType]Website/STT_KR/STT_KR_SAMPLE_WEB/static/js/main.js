@@ -1,5 +1,5 @@
-import { FFmpeg } from '/static/@ffmpeg/ffmpeg/dist/esm/index.js'
-import { fetchFile } from '/static/@ffmpeg/util/dist/esm/index.js'
+import { FFmpeg } from '/STT_KR_SAMPLE_WEB/static/@ffmpeg/ffmpeg/dist/esm/index.js'
+import { fetchFile } from '/STT_KR_SAMPLE_WEB/static/@ffmpeg/util/dist/esm/index.js'
 
 // 폰트 크기 상태 관리
 const fontSizes = {
@@ -42,8 +42,6 @@ const videoPreview = document.getElementById('video-preview');
 const previewBtn = document.getElementById('preview-btn');
 const generateBtn = document.getElementById('generate-btn');
 const cancelBtn = document.getElementById('cancel-btn');
-const captionSection = document.getElementById('caption-section');
-const loading = document.getElementById('loading');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -240,10 +238,7 @@ body: formData,
 });
 if (!res.ok) throw new Error('서버 오류');
 
-const captions = await res.text();
-tasksList.value = captions;
-loading.style.display = 'none';
-tasksContent.style.display = 'block';
+window.location.href = `/STT/task-list/${USER_ID}/`;
 } catch (err) {
 console.error('자막 생성 오류:', err);
 alert('자막 생성에 실패했습니다.');
@@ -475,11 +470,6 @@ applySubtitles();
 
 // 자막 생성 버튼 클릭 시
 generateBtn.addEventListener('click', async () => {
-captionSection.style.display = 'block';
-loading.style.display = 'block';
-tasksContent.style.display = 'none';
-captionSection.scrollIntoView({ behavior: 'smooth' });
-
 await generateCaptions();
 });
 
@@ -555,18 +545,9 @@ videoPreview.src = '';
 
 // 섹션 숨기기
 previewSection.style.display = 'none';
-captionSection.style.display = 'none';
 
 // 파일 입력 초기화
 fileInput.value = '';
-});
-
-// 작업 항목 클릭
-tasksList.addEventListener('click', (e) => {
-  const taskItem = e.target.closest('.task-item'); // task 항목 class
-  if (!taskItem) return;
-  const taskId = taskItem.dataset.id; // <div class="task-item" data-id="{{id}}">...
-  window.location.href = `/STT/task/${taskId}/`;
 });
 
 // 슬라이더 이벤트 리스너 등록
