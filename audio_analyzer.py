@@ -9,6 +9,8 @@ from collections import defaultdict
 from config import config
 
 class AudioAnalyzer:
+    """오디오 분석 및 특성 추출 클래스"""
+
     def __init__(self, sample_rate=16000):
         self.sample_rate = sample_rate
         self.volume_stats = {
@@ -29,6 +31,7 @@ class AudioAnalyzer:
             audio_segment = torch.tensor(audio_segment, dtype=torch.float32)
         return torch.sqrt(torch.mean(audio_segment**2)).item()
 
+    # --- volume ---
     def analyze_volume_distribution(self, audio):
         chunk_size = self.sample_rate
         volumes = []
@@ -80,6 +83,21 @@ class AudioAnalyzer:
         levels[volumes >= thresholds['normal']] = 'loud'
         return levels
 
+    # --- pitch ---
+    def assign_pitch_level(self, pitch):
+        if not self.pitch_stats['p10']:
+            return 'normal'
+        if pitch < 80:
+            return 'low'
+        elif pitch > 400:
+            return 'high'
+        if pitch <= self.pitch_stats['p10']:
+            return 'low'
+        elif pitch >= self.pitch_stats['p90']:
+            return 'high'
+        return 'normal'
+
+    # --- speech rate ---
     def analyze_speech_rate_distribution(self, segments):
         rates = []
         for segment in segments:
@@ -106,6 +124,7 @@ class AudioAnalyzer:
             return 'fast'
         return 'normal'
 
+    # --- helpers ---
     def _get_context_audio(self, audio, segment, pad_duration=0.1):
         start = max(0, segment['start'] - pad_duration)
         end = min(len(audio) / self.sample_rate, segment['end'] + pad_duration)
@@ -162,3 +181,113 @@ class AudioAnalyzer:
         else:
             adjusted_rate = syllable_complexity / duration
         return float(adjusted_rate)
+
+    # --- analyze_audio_features ---
+    def analyze_audio_features(self, segments, audio):
+        self.analyze_volume_distribution(audio)
+        self.analyze_speech_rate_distribution(segments)
+        fast_mode = bool(config.get('analysis', 'fast_mode', default=False))
+        prev_volume_level = None
+        hop_length_seg = 256
+        _pitch_values = []
+        for segment in segments:
+            duration = segment['end'] - segment['start']
+            if duration < self.min_duration:
+                seg_audio = self._get_context_audio(audio, segment, pad_duration=0.1)
+            else:
+                start_idx = int(segment['start'] * self.sample_rate)
+                end_idx = int(segment['end'] * self.sample_rate)
+                seg_audio = audio[start_idx:end_idx]
+            if len(seg_audio) == 0:
+                segment['volume_level'] = 'normal'
+                segment['volume_stats'] = {'mean': 0.0, 'levels': ['normal']}
+                segment['pitch_stats'] = {'levels': ['normal']}
+                segment['speech_rate_stats'] = {'levels': ['normal']}
+                continue
+            seg_rms = self.compute_rms(seg_audio)
+            vol_level_raw = self._classify_volume([seg_rms])[0]
+            if prev_volume_level and prev_volume_level != vol_level_raw:
+                thr = self.volume_stats['thresholds']
+                soft_thr = thr.get('soft') or 0
+                loud_thr = thr.get('normal') or 0
+                margin_soft = soft_thr * 0.1 if soft_thr else 0.01
+                margin_loud = loud_thr * 0.1 if loud_thr else 0.03
+                if vol_level_raw == 'soft' and soft_thr and (seg_rms > soft_thr - margin_soft):
+                    vol_level_raw = prev_volume_level
+                elif vol_level_raw == 'loud' and loud_thr and (seg_rms < loud_thr + margin_loud):
+                    vol_level_raw = prev_volume_level
+            segment['volume_level'] = vol_level_raw
+            prev_volume_level = vol_level_raw
+            words = segment.get('words', [])
+            frame_f0 = None
+            frame_times = None
+            try:
+                frame_f0 = librosa.yin(seg_audio, fmin=50, fmax=600, hop_length=hop_length_seg)
+                frame_times = (np.arange(len(frame_f0)) * hop_length_seg) / self.sample_rate
+                valid_f0 = frame_f0[frame_f0 > 0]
+                if valid_f0.size > 0:
+                    _pitch_values.append(float(np.mean(valid_f0)))
+            except Exception:
+                frame_f0 = None
+                frame_times = None
+            word_rms_values = []
+            for word in words:
+                try:
+                    if not isinstance(word, dict) or 'start' not in word or 'end' not in word:
+                        continue
+                    w_start_idx = int(word['start'] * self.sample_rate)
+                    w_end_idx = int(word['end'] * self.sample_rate)
+                    if w_end_idx <= w_start_idx or w_end_idx > len(audio):
+                        continue
+                    w_audio = audio[w_start_idx:w_end_idx]
+                    if len(w_audio) == 0:
+                        word['volume_level'] = 'normal'
+                        word['pitch_level'] = 'normal'
+                        word['speech_rate'] = 'normal'
+                        continue
+                    rms = self.compute_rms(w_audio)
+                    word['rms'] = rms
+                    word['volume_level'] = self._classify_volume([rms])[0]
+                    if frame_f0 is not None and frame_times is not None:
+                        rel_start = word['start'] - segment['start']
+                        rel_end = word['end'] - segment['start']
+                        mask = (frame_times >= rel_start) & (frame_times <= rel_end)
+                        sel = frame_f0[mask]
+                        sel = sel[sel > 0]
+                        if sel.size > 0:
+                            avg_pitch = np.mean(sel)
+                            word['pitch_level'] = self.assign_pitch_level(avg_pitch)
+                        else:
+                            word['pitch_level'] = 'normal'
+                    else:
+                        word['pitch_level'] = 'normal'
+                    dur_w = word['end'] - word['start']
+                    if dur_w > 0:
+                        if fast_mode:
+                            sr_val = self._estimate_syllable_complexity(word.get('word', '')) / max(dur_w, 1e-6)
+                        else:
+                            sr_val = self._calculate_phonetic_speech_rate(w_audio, word.get('word', ''), dur_w)
+                        word['speech_rate'] = self.assign_speech_rate_level(float(sr_val))
+                    else:
+                        word['speech_rate'] = 'normal'
+                    word_rms_values.append(rms)
+                except Exception as e:
+                    print(f"단어 처리 중 오류 발생: {str(e)}")
+                    word['volume_level'] = 'normal'
+                    word['pitch_level'] = 'normal'
+                    word['speech_rate'] = 'normal'
+            segment['volume_stats'] = {
+                'mean': float(np.mean(word_rms_values)) if word_rms_values else seg_rms,
+                'levels': [w.get('volume_level', 'normal') for w in words] if words else [vol_level_raw]
+            }
+            segment['pitch_stats'] = {
+                'levels': [w.get('pitch_level', 'normal') for w in words] if words else ['normal']
+            }
+            segment['speech_rate_stats'] = {
+                'levels': [w.get('speech_rate', 'normal') for w in words] if words else ['normal']
+            }
+        if _pitch_values:
+            self.pitch_stats['values'] = _pitch_values
+            self.pitch_stats['p10'] = float(np.percentile(_pitch_values, 10))
+            self.pitch_stats['p90'] = float(np.percentile(_pitch_values, 90))
+        return segments
