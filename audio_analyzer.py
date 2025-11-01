@@ -105,3 +105,60 @@ class AudioAnalyzer:
         elif rate >= self.speech_rate_stats['thresholds']['normal']:
             return 'fast'
         return 'normal'
+
+    def _get_context_audio(self, audio, segment, pad_duration=0.1):
+        start = max(0, segment['start'] - pad_duration)
+        end = min(len(audio) / self.sample_rate, segment['end'] + pad_duration)
+        start_idx = int(start * self.sample_rate)
+        end_idx = int(end * self.sample_rate)
+        return audio[start_idx:end_idx]
+
+    def _estimate_actual_speech_time(self, audio, total_duration):
+        if len(audio) == 0:
+            return total_duration
+        frame_size = int(self.sample_rate * 0.025)
+        hop_size = int(self.sample_rate * 0.010)
+        rms2d = librosa.feature.rms(
+            y=audio.astype(np.float32),
+            frame_length=frame_size,
+            hop_length=hop_size,
+            center=False
+        )
+        rms = rms2d.flatten()
+        frame_energy = (rms ** 2).astype(np.float64)
+        global_energy = float(np.mean(audio.astype(np.float32) ** 2))
+        threshold = global_energy * 0.05
+        if frame_energy.size == 0:
+            return total_duration
+        speech_frames = int(np.sum(frame_energy > threshold))
+        total_frames = int(frame_energy.size)
+        if total_frames > 0:
+            speech_ratio = speech_frames / total_frames
+            return total_duration * speech_ratio
+        return total_duration
+
+    def _estimate_syllable_complexity(self, text):
+        if not text:
+            return 1.0
+        complexity = 0
+        for char in text:
+            if char.isspace():
+                continue
+            elif 0x1100 <= ord(char) <= 0x11FF or 0x3130 <= ord(char) <= 0x318F or 0xAC00 <= ord(char) <= 0xD7AF:
+                complexity += 1.2
+            elif char.isalpha():
+                complexity += 1.0
+            else:
+                complexity += 0.8
+        return max(complexity, 1.0)
+
+    def _calculate_phonetic_speech_rate(self, audio, word_text, duration):
+        if duration <= 0:
+            return 1.0
+        actual_speech_time = self._estimate_actual_speech_time(audio, duration)
+        syllable_complexity = self._estimate_syllable_complexity(word_text)
+        if actual_speech_time > 0:
+            adjusted_rate = syllable_complexity / actual_speech_time
+        else:
+            adjusted_rate = syllable_complexity / duration
+        return float(adjusted_rate)
