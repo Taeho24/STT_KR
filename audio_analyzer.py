@@ -9,22 +9,15 @@ from collections import defaultdict
 from config import config
 
 class AudioAnalyzer:
-    """오디오 분석 및 특성 추출 클래스"""
-
     def __init__(self, sample_rate=16000):
         self.sample_rate = sample_rate
         self.volume_stats = {
-            'values': [],
-            'mean': None,
-            'std': None,
-            'percentiles': {},
+            'values': [], 'mean': None, 'std': None, 'percentiles': {},
             'thresholds': {'soft': None, 'normal': None, 'loud': None}
         }
         self.pitch_stats = {'values': [], 'p10': None, 'p90': None}
         self.speech_rate_stats = {
-            'values': [],
-            'mean': None,
-            'std': None,
+            'values': [], 'mean': None, 'std': None,
             'thresholds': {'slow': None, 'normal': None, 'fast': None}
         }
         self.speech_rate_spacing = {'slow': 10, 'normal': 0, 'fast': -5}
@@ -36,16 +29,13 @@ class AudioAnalyzer:
             audio_segment = torch.tensor(audio_segment, dtype=torch.float32)
         return torch.sqrt(torch.mean(audio_segment**2)).item()
 
-    # 전역 통계는 analyze_volume_distribution를 사용
     def analyze_volume_distribution(self, audio):
-        """전체 오디오의 볼륨 분포 분석 - 적응형 임계값 방식"""
         chunk_size = self.sample_rate
         volumes = []
         for i in range(0, len(audio), chunk_size):
             chunk = audio[i:i+chunk_size]
             if len(chunk) > 0:
-                rms = self.compute_rms(chunk)
-                volumes.append(rms)
+                volumes.append(self.compute_rms(chunk))
         if not volumes:
             return
         volumes = np.array(volumes)
@@ -89,3 +79,17 @@ class AudioAnalyzer:
         levels[volumes < thresholds['soft']] = 'soft'
         levels[volumes >= thresholds['normal']] = 'loud'
         return levels
+
+    def assign_pitch_level(self, pitch):
+        """피치값에 따라 level 할당 (의미있는 극단값 보존)"""
+        if not self.pitch_stats['p10']:
+            return 'normal'
+        if pitch < 80:
+            return 'low'
+        elif pitch > 400:
+            return 'high'
+        if pitch <= self.pitch_stats['p10']:
+            return 'low'
+        elif pitch >= self.pitch_stats['p90']:
+            return 'high'
+        return 'normal'
