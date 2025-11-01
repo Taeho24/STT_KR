@@ -58,6 +58,9 @@ const emotionColorsGrid = document.getElementById('emotion-colors-grid');
 const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
 const resethighlightBtn = document.getElementById('reset-highlight-btn');
 
+const tasksList = document.getElementById('tasks-list');
+const tasksContent = document.getElementById('tasks-content');
+
 const ffmpeg = new FFmpeg();
 await ffmpeg.load();
 
