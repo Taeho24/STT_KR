@@ -20,6 +20,7 @@ class ASSSubtitleGenerator:
         self.default_font = config.get('font', 'default_font')
         self.default_font_size = config.get('font', 'default_size')
         self.volume_size_multipliers = config.get('font', 'size_multipliers')
+        self.voice_fonts = config.get('font', 'voice_fonts')  # 음성 타입별 폰트
         self.volume_sizes = config.get('volume', 'sizes')
         self.pitch_outlines = config.get('outline', 'pitch_levels')
         self.speech_rate_spacing = config.get('spacing', 'speech_rate')
@@ -56,17 +57,27 @@ class ASSSubtitleGenerator:
         # 기본 스타일
         header += (f"Style: Default,{self.default_font},{self.default_font_size},&HFFFFFF,"
                    "&HFFFFFF,&H000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,10,10,10,1\n")
-        # Whisper/Normal/Shout 스타일
+        # Whisper/Normal/Shout 스타일 (완전한 정의)
         w_sz = int(self.default_font_size * self.volume_size_multipliers['whisper'])
         n_sz = self.default_font_size
         s_sz = int(self.default_font_size * self.volume_size_multipliers['shout'])
-        header += f"Style: Whisper,{self.default_font},{w_sz},&HFFFFFF,...\n"
-        header += f"Style: Normal,{self.default_font},{n_sz},&HFFFFFF,...\n"
-        header += f"Style: Shout,{self.default_font},{s_sz},&HFFFFFF,...\n"
+        
+        # 음성 타입별 폰트 설정
+        whisper_font = self.voice_fonts.get('whisper', self.default_font)
+        normal_font = self.voice_fonts.get('normal', self.default_font)
+        shout_font = self.voice_fonts.get('shout', self.default_font)
+        
+        header += (f"Style: Whisper,{whisper_font},{w_sz},&HFFFFFF,"
+                   "&HFFFFFF,&H000000,&H80000000,0,1,0,0,100,100,0,0,1,2,1,2,10,10,10,1\n")  # 이탤릭
+        header += (f"Style: Normal,{normal_font},{n_sz},&HFFFFFF,"
+                   "&HFFFFFF,&H000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,10,10,10,1\n")   # 일반
+        header += (f"Style: Shout,{shout_font},{s_sz},&HFFFFFF,"
+                   "&HFFFFFF,&H000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,10,10,10,1\n")   # 두꺼운 폰트 (볼드 해제)
         # 감정별 스타일
         for emo, col in self.emotion_colors.items():
             header += (f"Style: {emo.capitalize()},{self.default_font},"
-                       f"{self.default_font_size},{col},...\n")
+                       f"{self.default_font_size},{col},&HFFFFFF,&H000000,&H80000000,"
+                       f"0,0,0,0,100,100,0,0,1,2,1,2,10,10,10,1\n")
         
         header += "\n[Events]\n"
         header += ("Format: Layer, Start, End, Style, Name, MarginL, MarginR, "
@@ -110,6 +121,25 @@ class ASSSubtitleGenerator:
                 "{\\c" + self.default_color + "}"  # 기본 텍스트는 항상 흰색
             )
 
+        # voice_type 기반 스타일 처리 (whisper: 이탤릭 + 반투명, shout: 두꺼운 폰트)
+        voice_type = segment.get('voice_type', 'normal')
+        
+        # voice_type별 지속적인 스타일 태그 생성
+        voice_style_on = ""
+        voice_style_off = ""
+        
+        if voice_type == 'whisper':
+            whisper_font = self.voice_fonts.get('whisper', self.default_font)
+            voice_style_on = f"{{\\fn{whisper_font}\\i1\\1a&H60&}}"     # 폰트 + 이탤릭 + 반투명 적용
+            voice_style_off = f"{{\\fn{self.default_font}\\i0\\1a&H00&}}" # 기본 폰트로 복원 + 이탤릭/반투명 해제
+        elif voice_type == 'shout':
+            shout_font = self.voice_fonts.get('shout', self.default_font)
+            voice_style_on = f"{{\\fn{shout_font}}}"                     # 두꺼운 폰트 적용
+            voice_style_off = f"{{\\fn{self.default_font}}}"             # 기본 폰트로 복원
+
+        # voice_type 스타일 적용 (전체 세그먼트에)
+        text += voice_style_on
+        
         # 단어별 처리
         words = segment.get('words', [])
         if words:
@@ -148,8 +178,8 @@ class ASSSubtitleGenerator:
                     f"\\1c{highlight_color}" +  # 하이라이트 색상 적용
                     "}" +
                     word['word'] +
-                    "{\\r" +
-                    f"\\1c{self.default_color}" +  # 기본 색상으로 복귀
+                    "{" +
+                    f"\\1c{self.default_color}" +  # 색상만 기본으로 되돌림 (볼드/이탤릭 유지)
                     "}" +
                     " "
                 )
@@ -157,6 +187,9 @@ class ASSSubtitleGenerator:
                 prev_end = word['end']
         else:
             text += segment.get('text', '')
+
+        # voice_type 스타일 해제
+        text += voice_style_off
 
         # 최종 자막 라인 생성
         return f"Dialogue: 0,{st},{ed},Default,,0,0,0,,{text.rstrip()}\n"
