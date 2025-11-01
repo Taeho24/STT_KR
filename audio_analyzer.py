@@ -80,16 +80,28 @@ class AudioAnalyzer:
         levels[volumes >= thresholds['normal']] = 'loud'
         return levels
 
-    def assign_pitch_level(self, pitch):
-        """피치값에 따라 level 할당 (의미있는 극단값 보존)"""
-        if not self.pitch_stats['p10']:
+    def analyze_speech_rate_distribution(self, segments):
+        rates = []
+        for segment in segments:
+            duration = segment['end'] - segment['start']
+            word_count = len(segment.get('words', []))
+            if duration > 0 and word_count > 0:
+                rate = word_count / duration
+                rates.append(rate)
+                segment['_speech_rate'] = rate
+        if rates:
+            self.speech_rate_stats['values'] = rates
+            self.speech_rate_stats['mean'] = np.mean(rates)
+            self.speech_rate_stats['std'] = np.std(rates)
+            p25 = np.percentile(rates, 25)
+            p75 = np.percentile(rates, 75)
+            self.speech_rate_stats['thresholds'] = {'slow': p25, 'normal': p75, 'fast': float('inf')}
+
+    def assign_speech_rate_level(self, rate):
+        if not self.speech_rate_stats['thresholds']['slow']:
             return 'normal'
-        if pitch < 80:
-            return 'low'
-        elif pitch > 400:
-            return 'high'
-        if pitch <= self.pitch_stats['p10']:
-            return 'low'
-        elif pitch >= self.pitch_stats['p90']:
-            return 'high'
+        if rate <= self.speech_rate_stats['thresholds']['slow']:
+            return 'slow'
+        elif rate >= self.speech_rate_stats['thresholds']['normal']:
+            return 'fast'
         return 'normal'
