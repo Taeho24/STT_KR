@@ -10,6 +10,76 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('download-btn'); 
     const deleteButtons = document.querySelectorAll('.delete-btn');
 
+    const speakerMappingSection = document.getElementById("speaker-mapping-section")
+    const speakerMappingContainer = document.getElementById("speaker-mapping-container")
+
+    let detectedSpeakers = []
+
+    // 화자 감지 함수
+    function detectSpeakers(subtitleContent) {
+        const speakerPattern = /speaker_\d+/gi
+        const matches = subtitleContent.match(speakerPattern)
+
+        if (!matches) return []
+
+        // 감지한 speaker_ 들 정렬
+        const uniqueSpeakers = [...new Set(matches.map((s) => s.toLowerCase()))]
+        return uniqueSpeakers.sort()
+    }
+
+    function createSpeakerMappingUI(speakers) {
+        if (speakers.length === 0) {
+        speakerMappingSection.style.display = "none"
+        return
+        }
+
+        speakerMappingSection.style.display = "block"
+        speakerMappingContainer.innerHTML = ""
+
+        speakers.forEach((speaker, index) => {
+        const mappingItem = document.createElement("div")
+        mappingItem.className = "speaker-mapping-item"
+
+        const speakerNumber = index + 1
+
+        mappingItem.innerHTML = `
+                    <label class="speaker-label" for="speaker-${speaker}">
+                        <span class="speaker-original">${speaker}</span>
+                        <span class="speaker-arrow">→</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="speaker-${speaker}" 
+                        class="speaker-input" 
+                        placeholder="화자 ${speakerNumber} 이름 입력"
+                        data-speaker="${speaker}"
+                    >
+                `
+
+        speakerMappingContainer.appendChild(mappingItem)
+        })
+    }
+
+    // 화자 이름 치환
+    function replaceSpeakersInSubtitle(subtitleContent) {
+        let modifiedContent = subtitleContent
+
+        const speakerInputs = document.querySelectorAll(".speaker-input")
+
+        speakerInputs.forEach((input) => {
+        const originalSpeaker = input.dataset.speaker
+        const newName = input.value.trim()
+
+        if (newName) {
+            // 이름 바꾸기
+            const regex = new RegExp(originalSpeaker, "gi")
+            modifiedContent = modifiedContent.replace(regex, newName)
+        }
+        })
+
+        return modifiedContent
+    }
+
     // 상태를 조회하고 업데이트하는 폴링 함수
     const checkStatus = async () => {
         try {
@@ -121,6 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteButtons.forEach(button => {
         button.addEventListener('click', deleteTask);
     });
+
+    // 화자 이름 변경 적용
+    if (window.INITIAL_STATUS === "success" && captionTextarea.value) {
+        detectedSpeakers = detectSpeakers(captionTextarea.value)
+        createSpeakerMappingUI(detectedSpeakers)
+    }
     
     // 초기 로딩 시작
     loadingElement.style.display = 'block';
