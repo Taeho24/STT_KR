@@ -9,76 +9,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const downloadBtn = document.getElementById('download-btn'); 
     const deleteButtons = document.querySelectorAll('.delete-btn');
+    const applyBtn = document.getElementById('apply-btn'); 
 
     const speakerMappingSection = document.getElementById("speaker-mapping-section")
     const speakerMappingContainer = document.getElementById("speaker-mapping-container")
 
-    let detectedSpeakers = []
-
-    // 화자 감지 함수
-    function detectSpeakers(subtitleContent) {
-        const speakerPattern = /speaker_\d+/gi
-        const matches = subtitleContent.match(speakerPattern)
-
-        if (!matches) return []
-
-        // 감지한 speaker_ 들 정렬
-        const uniqueSpeakers = [...new Set(matches.map((s) => s.toLowerCase()))]
-        return uniqueSpeakers.sort()
-    }
-
-    function createSpeakerMappingUI(speakers) {
-        if (speakers.length === 0) {
-        speakerMappingSection.style.display = "none"
-        return
+    // 화자 이름 매핑 UI를 동적으로 생성
+    function createSpeakerMappingUI(speakerMap) {
+        const speakers = Object.keys(speakerMap);
+        
+        if (speakers.length === 0 || !speakerMappingSection) {
+            if (speakerMappingSection) speakerMappingSection.style.display = "none";
+            return;
         }
 
-        speakerMappingSection.style.display = "block"
-        speakerMappingContainer.innerHTML = ""
+        speakerMappingSection.style.display = "block";
+        speakerMappingContainer.innerHTML = "";
 
-        speakers.forEach((speaker, index) => {
-        const mappingItem = document.createElement("div")
-        mappingItem.className = "speaker-mapping-item"
+        // 딕셔너리의 {originalName: newName} 쌍을 순회하며 입력 필드 생성
+        Object.entries(speakerMap).forEach(([originalSpeaker, newName], index) => {
+            const mappingItem = document.createElement("div");
+            mappingItem.className = "speaker-mapping-item";
 
-        const speakerNumber = index + 1
+            const speakerNumber = index + 1;
 
-        mappingItem.innerHTML = `
-                    <label class="speaker-label" for="speaker-${speaker}">
-                        <span class="speaker-original">${speaker}</span>
-                        <span class="speaker-arrow">→</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="speaker-${speaker}" 
-                        class="speaker-input" 
-                        placeholder="화자 ${speakerNumber} 이름 입력"
-                        data-speaker="${speaker}"
-                    >
-                `
-
-        speakerMappingContainer.appendChild(mappingItem)
-        })
+            // HTML 생성 (newName을 value에 넣어 기본값으로 표시)
+            mappingItem.innerHTML = `
+                <label class="speaker-label" for="speaker-${originalSpeaker}">
+                    <span class="speaker-original">${originalSpeaker}</span>
+                    <span class="speaker-arrow">→</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="speaker-${originalSpeaker}" 
+                    class="speaker-input" 
+                    placeholder="화자 ${speakerNumber} 이름 입력"
+                    data-speaker="${originalSpeaker}"
+                    value="${newName || ''}"
+                >
+            `;
+            speakerMappingContainer.appendChild(mappingItem);
+        });
+        
+        const applyBtn = document.getElementById("apply-btn");
+        if (applyBtn) {
+            applyBtn.addEventListener('click', applySpeakerMapping);
+        }
     }
 
-    // 화자 이름 치환
-    function replaceSpeakersInSubtitle(subtitleContent) {
-        let modifiedContent = subtitleContent
-
-        const speakerInputs = document.querySelectorAll(".speaker-input")
-
+    // 화자 이름 변경 적용 (POST 요청)
+    const applySpeakerMapping = async () => {
+        const newNamesMap = {};
+        const speakerInputs = document.querySelectorAll(".speaker-input");
+        
+        // 사용자 입력 값 수집
         speakerInputs.forEach((input) => {
-        const originalSpeaker = input.dataset.speaker
-        const newName = input.value.trim()
+            const originalSpeaker = input.dataset.speaker;
+            const newName = input.value.trim();
+            if (newName) {
+                newNamesMap[originalSpeaker] = newName;
+            }
+        });
 
-        if (newName) {
-            // 이름 바꾸기
-            const regex = new RegExp(originalSpeaker, "gi")
-            modifiedContent = modifiedContent.replace(regex, newName)
+        if (Object.keys(newNamesMap).length === 0) {
+            alert("변경할 화자 이름을 입력해주세요.");
+            return;
         }
-        })
 
-        return modifiedContent
-    }
+        try {
+            if(loadingElement) {
+                loadingElement.style.display = 'block';
+            }
+            
+            const response = await fetch(`/STT/update-speaker-name/${TASK_ID}/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_names: newNamesMap }),
+            });
+
+            if(loadingElement) {
+                loadingElement.style.display = 'none';
+            }
+
+            if (response.ok) {
+                const newSubtitle = await response.text();
+                captionTextarea.value = newSubtitle;
+                alert('화자 이름 변경이 성공적으로 적용되었습니다.');
+            } else {
+                const errorText = await response.text();
+                alert(`화자 이름 변경 실패: ${errorText}`);
+            }
+        } catch (error) {
+            console.error('화자 이름 변경 요청 오류:', error);
+            if(loadingElement) {
+                loadingElement.style.display = 'none';
+            }
+            alert('네트워크 오류로 변경 요청에 실패했습니다.');
+        }
+    };
 
     // 상태를 조회하고 업데이트하는 폴링 함수
     const checkStatus = async () => {
@@ -93,7 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subtitle = await response.text();
                     captionTextarea.value = subtitle;
                     taskStatusElement.textContent = '완료';
-                    loadingElement.style.display = 'none';
+                    if(loadingElement) {
+                        loadingElement.style.display = 'none';
+                    }
                     // (폴링 종료)
 
                 } else if (contentType && contentType.includes('application/json')) {
@@ -112,7 +142,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } else if (response.status === 500) {
                 // FAILURE/ERROR: 서버 에러 (500)
-                loadingElement.style.display = 'none';
+                if(loadingElement) {
+                    loadingElement.style.display = 'none';
+                }
                 errorStateElement.style.display = 'block';
                 taskStatusElement.textContent = '실패';
             }
@@ -192,13 +224,17 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('click', deleteTask);
     });
 
-    // 화자 이름 변경 적용
-    if (window.INITIAL_STATUS === "success" && captionTextarea.value) {
-        detectedSpeakers = detectSpeakers(captionTextarea.value)
-        createSpeakerMappingUI(detectedSpeakers)
+     if (applyBtn) { 
+        applyBtn.addEventListener('click', applySpeakerMapping);
+    }
+
+    if (INITIAL_STATUS === "success" && captionTextarea.value) {
+        createSpeakerMappingUI(SPEAKER_NAMES_MAP)
     }
     
     // 초기 로딩 시작
-    loadingElement.style.display = 'block';
+    if(loadingElement) {
+        loadingElement.style.display = 'block';
+    }
     checkStatus();
 });

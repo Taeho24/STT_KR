@@ -44,8 +44,8 @@ class TaskInfo(models.Model):
         verbose_name="Celery 작업"
     )
     
-    # subtitle: 생성된 최종 자막 텍스트
-    subtitle = models.TextField(
+    # srt_subtitle: 생성된 최종 srt 자막 텍스트
+    srt_subtitle = models.TextField(
         verbose_name="자막 내용", 
         null=True, 
         blank=True
@@ -54,6 +54,11 @@ class TaskInfo(models.Model):
     # config: 자막 생성에 사용된 설정(폰트, 색상 등)을 JSON 문자열로 저장
     config = models.JSONField(
         verbose_name="설정 데이터", 
+        default=dict
+    )
+
+    segment = models.JSONField(
+        verbose_name="자막 데이터", 
         default=dict
     )
 

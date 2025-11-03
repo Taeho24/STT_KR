@@ -775,7 +775,6 @@ header {
   border-radius: 8px;
   font-size: 1rem;
   margin-top: 20px;
-  margin-bottom: 20px;
   resize: vertical;
   font-family: monospace;
 }
@@ -788,33 +787,39 @@ header {
 }
 
 .download-btn {
-  background-color: #4dabf7;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
+  margin: 0 10px;
   padding: 12px 25px;
   border-radius: 5px;
   font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-top: 0px;
 }
 
 .download-btn:hover {
-  background-color: rgb(0, 139, 182);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .delete-btn {
-  background-color: #df4f45;
+  background: linear-gradient(135deg, #ea6666 0%, #a24b4b 100%);
   color: white;
   border: none;
+  margin: 0 10px;
   padding: 12px 25px;
   border-radius: 5px;
   font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-top: 0px;
 }
 
 .delete-btn:hover {
-  background-color: #c92525;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(234, 102, 102, 0.4);
 }
 
 .retry-btn {
@@ -1105,7 +1110,6 @@ footer {
     margin-bottom: 10px;
 }
 
-/* speaker mapping section 스타일 추가 */
 .speaker-mapping-section {
   margin: 20px 0;
   padding: 20px;
@@ -1210,4 +1214,22 @@ footer {
   .speaker-input {
     width: 100%;
   }
+}
+
+.apply-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  margin: 0 10px;
+  padding: 12px 25px;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 15px;
+}
+
+.apply-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }

@@ -10,28 +10,23 @@ from .srt_subtitle_generator import SRTSubtitleGenerator
 from .utils import split_segment_by_max_words
 from django.conf import settings
 from .model_cache import ModelCache
-from django.db.models import ObjectDoesNotExist
-from django.shortcuts import get_object_or_404
-from ..models import UserTask, TaskInfo
+from .db_manager import DBManager
 
 class SubtitleGenerator:
     def __init__(
-            self, audio_path,
+            self, audio_path="",
             max_words=10, 
             device="cuda" if torch.cuda.is_available() else "cpu",
             compute_type="float16" if torch.cuda.is_available() else "float32",
-            batch_size=4):
+            batch_size=4,
+            task_id=""):
+        # DB manager 객체 생성
+        self.db_manager = DBManager(task_id=task_id)
+
         # 경로 설정
         self.audio_path = audio_path
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
         self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'tmp', 'result')
-        
-        self.id = os.path.splitext(os.path.basename(audio_path))[0]
-        self.json_path = os.path.join(self.output_path, f"{self.id}_segments.json")
-        self.srt_output_path = os.path.join(self.output_path, f"{self.id}_subtitle.srt")
-        self.ass_output_path = os.path.join(self.output_path, f"{self.id}_subtitle.ass")
-
-        os.makedirs(self.output_path, exist_ok=True)
 
         self.max_words = max_words
         self.device = device
@@ -45,24 +40,10 @@ class SubtitleGenerator:
         self.model_cache = ModelCache()
 
         # 파일 존재 여부 확인 추가
-        if not os.path.exists(self.audio_path):
+        if self.audio_path != "" and not os.path.exists(self.audio_path):
             raise FileNotFoundError(f"입력 오디오 파일을 찾을 수 없습니다: {self.audio_path}\n"
                                 f"현재 작업 디렉토리: {os.getcwd()}\n"
                                 f"입력된 경로: {self.audio_path}")
-    
-    def _load_subtitle_settings(self, task_id):
-        # Task ID를 사용하여 TaskInfo 레코드를 조회하고 config 데이터를 반환
-        try:
-            user_task = get_object_or_404(UserTask, task_id=task_id)
-            task_info = TaskInfo.objects.get(task=user_task)
-            
-            # config는 JSONField이므로 바로 딕셔너리 형태로 반환됩니다.
-            return task_info.config
-            
-        except ObjectDoesNotExist:
-            print(f"오류: Task ID {task_id}에 대한 설정 데이터를 DB에서 찾을 수 없습니다.")
-            # 찾지 못하면 기본 설정 또는 빈 딕셔너리를 반환하여 오류 방지
-            return {}
 
     def process_video(self, file_format:str = "srt"):
         # WhisperX 모델 불러오기
@@ -145,28 +126,16 @@ class SubtitleGenerator:
             print("=======================\n")
         else:
             print(f"인식된 언어가 'en'이 아닌 '{language_code}'이기 때문에 감정 분석 과정을 생략합니다.")
-        
-        self._segments_to_json(segments)
 
-        return segments
-    
-    def _segments_to_json(self, segments:dict):
-        with open(self.json_path, "w") as f:
-            json.dump(segments, f)
-    
-    def _load_segments(self):
-        with open(self.json_path, "r") as f:
-            segments = json.load(f)
-        
+        self.db_manager.update_segment(segments)
+
         return segments
     
     def modify_proper_nouns(self, proper_nouns: list):
         if len(proper_nouns) > 0:
-            segments = self._load_segments()
+            segments = self.db_manager.load_segment()
             full_text = " ".join([s['text'] for s in segments])
 
-            # TODO: s['text']로 이루어진 full_text가 아닌 s['words']['word'] 값들을 보고 답변을 생성하도록 수정
-            # 현재로서는 key, value가 word 단위로 생성되지 않는 경우가 생김
             response = self.model_cache.client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=f"""
@@ -176,8 +145,8 @@ class SubtitleGenerator:
 
                 **Instructions:**
                 1.  **Strictly** analyze the provided `subtitle` text against the `proper_nouns` list.
-                2.  Find any substrings in the `subtitle` that are likely misrecognized versions of the `proper_nouns`.
-                3.  Your final output must be a single JSON object. The **KEYS** of this object should be the **correct proper nouns**, and the **VALUES** should be the **misrecognized substrings** found in the subtitle text.
+                2.  Find any single, misrecognized **word** (no spaces allowed) that corresponds to a `proper noun`.
+                3.  Your final output must be a single JSON object. The **KEYS** of this object should be the **correct proper nouns**, and the **VALUES** should be the **misrecognized words** found in the subtitle text.
                 4.  **Crucially, your response MUST be a valid JSON-formatted string. DO NOT use markdown code blocks or any other formatting. Provide the raw JSON object only, with no other text or explanation.**
 
                 **Example Input:**
@@ -212,53 +181,22 @@ class SubtitleGenerator:
                             word['word'] = word['word'].replace(misrecognized_text, modified_text)
 
             # 수정된 세그먼트 데이터 저장
-            self._segments_to_json(segments)
+            self.db_manager.update_segment(segments)
             
             print("고유명사 교정 완료")
         else:
             print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
-    def get_speaker_name(self):
-        segments = self._load_segments()
-        speaker_names = set()
-
-        for segment in segments:
-            for s in segment['words']:
-                speaker_names.add(s['speaker'])
-        
-        return list(speaker_names)
-
-    def replace_speaker_name(self, new_names: json, task_id):
-        """
-        new_names: {"SPEAKER_00": "NEW_NAME", }
-        """
-        segments = self._load_segments()
-
-        for segment in segments:
-            for word_data in segment.get('words', []):
-                # 딕셔너리 조회로 스피커 이름 존재 여부 확인
-                current_name = word_data.get('speaker')
-                if current_name in new_names:
-                    # 딕셔너리의 새 이름으로 즉시 교체
-                    word_data['speaker'] = new_names[current_name]
-        
-        self._segments_to_json(segments)
-
-        srt_subtitle = self.generate_srt_subtitle(task_id)
-
-        return srt_subtitle
-
-    def generate_srt_subtitle(self, task_id):
-        subtitle_settings = self._load_subtitle_settings(task_id)
+    def generate_srt_subtitle(self):
+        subtitle_settings = self.db_manager.load_config()
 
         srt_subtitle_generator = SRTSubtitleGenerator(subtitle_settings=subtitle_settings)
 
-        segments = self._load_segments()
+        segments = self.db_manager.load_segment()
 
-        srt_subtitle_generator.segments_to_srt(segments, self.srt_output_path)
+        srt_subtitle = srt_subtitle_generator.segments_to_srt(segments)
 
-        with open(self.srt_output_path, 'r', encoding='utf-8') as f:
-            return f.read()
+        return srt_subtitle
     
     def generate_ass_subtitle(self):
         pass

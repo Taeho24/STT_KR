@@ -63,65 +63,52 @@ class SRTSubtitleGenerator:
         ms = int((seconds % 1) * 1000)
         return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
-    def segments_to_srt(self, segments, output_path):
-        with open(output_path, "w", encoding="utf-8") as f:
-            index = 1
-            for segment in segments:
-                words = segment.get("words", [])
-                prev_end_time = 0
-                for i, word_info in enumerate(words):
-                    if "start" not in word_info or "end" not in word_info:
-                        continue
-                    start = word_info["start"]
-                    end = word_info["end"]
+    def segments_to_srt(self, segments):
+        index = 1
+        subtitle = ""
 
-                    speaker = word_info.get("speaker", "Unknown")
+        for segment in segments:
+            words = segment.get("words", [])
+            prev_end_time = 0
+            for i, word_info in enumerate(words):
+                if "start" not in word_info or "end" not in word_info:
+                    continue
+                start = word_info["start"]
+                end = word_info["end"]
 
-                    if prev_end_time != 0:
-                        start = prev_end_time
-                    prev_end_time = end
+                speaker = word_info.get("speaker", "Unknown")
 
+                if prev_end_time != 0:
+                    start = prev_end_time
+                prev_end_time = end
 
-                    """
-                    프론트엔드에 감정인식/화자분리 결과 적용할 건지 여부의 설정에 대한 인터페이스가 추가될 시 아래와 같이 적용
-
-                    highlighted_sentence = ""
-                    if apply_emotion == True:
-                        emotion = segment.get('emotion', 'neutral')
-                        emotion_color = self.emotion_colors.get(emotion, self.default_color)
-                        highlighted_sentence += f"<font color={emotion_color} size={self.default_font_size}px>"
-                    else:
-                        highlighted_sentence += f"<font color={self.default_color} size={self.default_font_size}px>"
-                    
-                    if apply_diarization == True:
-                        highlighted_sentence += f"[{speaker}]\n"
-                    """
-
-
-                    emotion = segment.get('emotion', 'neutral')
-                    emotion_color = self.emotion_colors.get(emotion, self.default_color)
-                    highlighted_sentence = f"<font color={emotion_color} size={self.default_font_size}px>[{speaker}]\n"
-                    for j, w in enumerate(words):
-                        word_text = w["word"]
-                        word_type = w.get("type", 1)
-                        if j == i:
-                            if word_type == 0:
-                                highlighted_sentence += f'<font color={self.highlight_color} size={self.min_font_size}px>{word_text}</font> '
-                            elif word_type == 2:
-                                highlighted_sentence += f'<font color={self.highlight_color} size={self.max_font_size}px>{word_text}</font> '
-                            else:
-                                highlighted_sentence += f'<font color={self.highlight_color}>{word_text}</font> '
+                emotion = segment.get('emotion', 'neutral')
+                emotion_color = self.emotion_colors.get(emotion, self.default_color)
+                highlighted_sentence = f"<font color={emotion_color} size={self.default_font_size}px>[{speaker}]\n"
+                for j, w in enumerate(words):
+                    word_text = w["word"]
+                    word_type = w.get("type", 1)
+                    if j == i:
+                        if word_type == 0:
+                            highlighted_sentence += f'<font color={self.highlight_color} size={self.min_font_size}px>{word_text}</font> '
+                        elif word_type == 2:
+                            highlighted_sentence += f'<font color={self.highlight_color} size={self.max_font_size}px>{word_text}</font> '
                         else:
-                            if word_type == 0:
-                                highlighted_sentence += f'<font size={self.min_font_size}px>{word_text}</font> '
-                            elif word_type == 2:
-                                highlighted_sentence += f'<font size={self.max_font_size}px>{word_text}</font> '
-                            else:
-                                highlighted_sentence += word_text + " "
-                    highlighted_sentence += "</font>"
+                            highlighted_sentence += f'<font color={self.highlight_color}>{word_text}</font> '
+                    else:
+                        if word_type == 0:
+                            highlighted_sentence += f'<font size={self.min_font_size}px>{word_text}</font> '
+                        elif word_type == 2:
+                            highlighted_sentence += f'<font size={self.max_font_size}px>{word_text}</font> '
+                        else:
+                            highlighted_sentence += word_text + " "
+                highlighted_sentence += "</font>"
 
-                    f.write(f"{index}\n")
-                    f.write(f"{self.format_timestamp(start)} --> {self.format_timestamp(end)}\n")
-                    f.write(f"{highlighted_sentence.strip()}\n\n")
-                    index += 1
-        print(f"SRT 파일이 저장되었습니다: {output_path}")
+                subtitle += f"{index}\n"
+                subtitle += f"{self.format_timestamp(start)} --> {self.format_timestamp(end)}\n"
+                subtitle += f"{highlighted_sentence.strip()}\n\n"
+                index += 1
+
+        print(f"SRT 자막이 생성되었습니다")
+
+        return subtitle
