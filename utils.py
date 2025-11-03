@@ -198,12 +198,4 @@ def add_subtitle_to_video(video_path, subtitle_path, output_path):
         print(f"자막 합성 중 치명적 오류 발생: {e}")
         return False
 
-def save_segments_to_json(segments, output_path):
-    """세그먼트 정보를 JSON 파일로 저장 (디버깅 및 분석용)"""
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(segments, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        print(f"JSON 저장 오류: {e}")
-        return False
+

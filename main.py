@@ -16,6 +16,7 @@ from pathlib import Path
 import sys
 import time
 import datetime
+import json
 
 # 상대 경로 모듈 가져오기
 from audio_analyzer import AudioAnalyzer
@@ -34,6 +35,10 @@ def parse_arguments():
     parser.add_argument("--device", type=str, default="auto", help="계산 디바이스 (auto/cuda/cpu)")
     parser.add_argument("--batch_size", type=int, default=16, help="배치 크기")
     parser.add_argument("--compute_type", type=str, default=None, help="계산 타입")
+    # 감정 모델 선택 옵션 추가
+    parser.add_argument("--audio_model", type=str, default=None, help="오디오 감정 모델 식별자 (Hugging Face hub 경로). 예: xbgoose/... 또는 ehcalabres/...")
+    parser.add_argument("--text_model", type=str, default=None, help="텍스트 감정 모델 식별자 (선택). 예: j-hartmann/...")
+    parser.add_argument("--no_text", action="store_true", help="텍스트 감정 모델 사용 비활성화 (오디오 전용)")
     parser.add_argument("--add_to_video", action="store_true", help="자막을 영상에 합성")
     return parser.parse_args()
 
@@ -84,42 +89,7 @@ def generate_srt_subtitle(segments, output_path):
             f.write(f"{segment['text']}\n\n")
     print(f"SRT 파일이 저장되었습니다: {output_path}")
 
-def process_extra_video(video_path):
-    """추가 비디오 처리 (음성 인식 및 세그먼트 분할)"""
-    # compute_type 자동 선택
-    compute_type = "float16" if torch.cuda.is_available() else "float32"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    print(f"\n추가 비디오 처리 시작: {video_path}")
-    
-    try:
-        vad_options = {"use_vad": True}
-        model = whisperx.load_model("large-v2", device, compute_type=compute_type, vad_options=vad_options)
-        
-        print("오디오 추출 중...")
-        audio = whisperx.load_audio(video_path)
-        
-        print("음성 인식(STT) 수행 중...")
-        result = model.transcribe(audio, batch_size=16)
-        language_code = result["language"]
-        print(f"감지된 언어: {language_code}")
-        
-        print("음성 정렬 수행 중...")
-        model_a, metadata = whisperx.load_align_model(language_code=language_code, device=device)
-        result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
-        
-        segments = split_segment_by_max_words(result["segments"], 10)
-        segments = [s for s in segments if (s["end"] - s["start"]) > 0.7]
-        print(f"분할된 세그먼트 수: {len(segments)}")
-        
-        audio_analyzer = AudioAnalyzer(sample_rate=16000)
-        segments = audio_analyzer.analyze_audio_features(segments, audio)
-        
-        return segments
-        
-    except Exception as e:
-        print(f"추가 비디오 처리 중 오류 발생: {str(e)}")
-        return []
+# process_extra_video: 사용처가 없어 제거되었습니다(파이프라인 단일 엔트리 유지)
 
 def process_video(args):
     """비디오 처리 파이프라인"""
@@ -232,7 +202,9 @@ def process_video(args):
 
     print("음성 정렬 수행 중...")
     model_a, metadata = whisperx.load_align_model(language_code=language_code, device=args.device)
-    result = whisperx.align(result["segments"], model_a, metadata, audio, args.device, return_char_alignments=False)
+    # 정확한 싱크를 위해 word-level 정렬 사용
+    result = whisperx.align(result["segments"], model_a, metadata, audio, args.device,
+                          return_char_alignments=True)
 
     print("화자 분리 수행 중...")
     try:
@@ -302,19 +274,76 @@ def process_video(args):
     print("오디오 특성 분석 중...")
     audio_analyzer = AudioAnalyzer(sample_rate=16000)
     segments = audio_analyzer.analyze_audio_features(segments, audio)
+    # Whisper/Shout 절대 감지는 감정 분석 후 통계 출력 직전에 수행 (로그 순서 요구사항)
+    segments = audio_analyzer.classify_voice_types(segments, audio)
 
     # 감정 분류기 초기화
     print("감정 분류 모델 로드 중...")
+    # 언어에 따른 텍스트 모델 자동 비활성화: 영어가 아니고 사용자가 별도 지정하지 않았으면 꺼둠
+    lang = str(language_code).lower() if isinstance(language_code, str) else ""
+    is_english = lang.startswith("en")
+    is_korean = lang.startswith("ko")
+    user_text_model = getattr(args, "text_model", None)
+    no_text_flag = getattr(args, "no_text", False)
+    # 한국어면 config.models.text_ko가 있으면 자동 선택, 없으면 비활성화
+    text_ko_model = config.get('models', 'text_ko')
+    auto_disable_text = False
+    effective_text_model = None
+    if no_text_flag:
+        auto_disable_text = True
+    elif user_text_model is not None:
+        effective_text_model = user_text_model
+    elif is_korean:
+        effective_text_model = text_ko_model  # None일 수 있음(없으면 비활성화)
+        auto_disable_text = (text_ko_model is None)
+    else:
+        # 영어 또는 기타: 영어면 기본 텍스트 사용, 그 외 언어면 비활성화
+        if is_english:
+            effective_text_model = config.get('models', 'text')
+        else:
+            auto_disable_text = True
+            effective_text_model = None
+    effective_enable_text = (False if auto_disable_text else None)
     emotion_classifier = EmotionClassifier(
         device=args.device,
         batch_size=args.batch_size,
-        cache_dir=os.path.join(args.output_dir, ".cache")
+        cache_dir=os.path.join(args.output_dir, ".cache"),
+        audio_model_name=getattr(args, "audio_model", None),
+        text_model_name=effective_text_model,
+        enable_text=effective_enable_text
     )
     print("감정 분류 모델 로드 완료")
 
     # 감정 분석 배치 처리
     print("감정 분석 중...")
     segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
+
+    # 하이퍼파라미터 튜닝을 위한 세그먼트 데이터 덤프
+    annotation_dump_path = os.path.join(output_dir, f"{video_filename}_segments_for_labeling.jsonl")
+
+    def _sanitize_scores(scores):
+        if not isinstance(scores, dict):
+            return {}
+        return {str(k): float(v) for k, v in scores.items()}
+
+    with open(annotation_dump_path, "w", encoding="utf-8") as dump_f:
+        for segment in segments:
+            record = {
+                "video": video_filename,
+                "start": float(segment.get("start", 0.0)),
+                "end": float(segment.get("end", 0.0)),
+                "text": segment.get("text", ""),
+                "speaker": segment.get("speaker", "Unknown"),
+                "voice_type": segment.get("voice_type", "normal"),
+                "predicted_emotion": segment.get("emotion"),
+                "confidence": float(segment.get("confidence", 0.0)),
+                "text_scores": _sanitize_scores(segment.get("text_scores")),
+                "audio_scores": _sanitize_scores(segment.get("audio_scores")),
+                "combined_scores": _sanitize_scores(segment.get("combined_scores"))
+            }
+            dump_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    print(f"라벨링용 세그먼트 데이터가 저장되었습니다: {annotation_dump_path}")
 
     # 감정 분석 통계 출력
     if segments:
@@ -329,6 +358,16 @@ def process_video(args):
             percentage = (count / total_segments) * 100
             print(f" - {emotion}: {count}개 세그먼트 ({percentage:.1f}%)")
         print("=======================\n")
+
+    # 이제 Whisper/Shout 결과 로그 (감정 통계 이후)
+    whisper_cnt = sum(1 for s in segments if s.get('voice_type') == 'whisper')
+    shout_cnt = sum(1 for s in segments if s.get('voice_type') == 'shout')
+    print(f"Whisper 감지: {whisper_cnt}개 | Shout 감지: {shout_cnt}개 (총 {len(segments)} 세그먼트)")
+    if hasattr(audio_analyzer, 'voice_type_stats'):
+        stats = audio_analyzer.voice_type_stats
+        print("[VoiceType Stats] mean_rms={:.4f} std_rms={:.4f} whisper_abs_eff={:.4f} shout_abs_eff={:.4f} env_scale={:.2f}".format(
+            stats.get('mean_rms', 0), stats.get('std_rms', 0),
+            stats.get('whisper_abs_eff', 0), stats.get('shout_abs_eff', 0), stats.get('env_scale', 1.0)))
 
     print("SRT 자막 생성 중...")
     generate_srt_subtitle(segments, srt_output_path)
