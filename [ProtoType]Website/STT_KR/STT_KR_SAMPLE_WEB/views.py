@@ -7,8 +7,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 
 from celery.result import AsyncResult
-
-from .tasks import process_and_generate_srt_task
 from .utils.config import config
 from .utils.subtitle_config import set_subtitle_settings
 from .utils.subtitle_generator import SubtitleGenerator
@@ -63,7 +61,8 @@ def generate_caption(request):
 
         # 비동기/동기 전환: settings.USE_CELERY 플래그로 제어 (기본 False - 개발 편의)
         if getattr(settings, 'USE_CELERY', False):
-            # 비동기 방식
+            # 비동기 방식: 필요할 때만 import하여 무거운 의존성 로딩을 지연
+            from .tasks import process_and_generate_srt_task
             task = process_and_generate_srt_task.delay(audio_path=wsl_path, subtitle_settings=subtitle_settings, proper_nouns=proper_nouns)
             return JsonResponse({"task_id": task.id}, status=202)
         else:
