@@ -1,5 +1,6 @@
 from STT_KR.celery import app
 from .utils.subtitle_generator import SubtitleGenerator 
+from .utils.db_manager import DBManager
 
 @app.task(bind=True)
 def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_format: str = "srt"):
@@ -12,17 +13,20 @@ def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_for
     try:
         task_id = self.request.id
 
-        sg = SubtitleGenerator(audio_path=audio_path)
+        sg = SubtitleGenerator(audio_path=audio_path, task_id=task_id)
         
         sg.process_video(file_format=file_format)
 
         if len(proper_nouns) > 0:
             sg.modify_proper_nouns(proper_nouns)
         
-        srt_text = sg.generate_srt_subtitle(task_id)
+        srt_subtitle = sg.generate_srt_subtitle()
+
+        db_manager = DBManager(task_id)
+
+        db_manager.update_srt_subtitle(srt_subtitle)
         
-        return srt_text
-        
+        return srt_subtitle
     except FileNotFoundError as e:
         print(f"Error: {e}")
         # 파일이 없을 경우 태스크를 실패로 기록합니다.

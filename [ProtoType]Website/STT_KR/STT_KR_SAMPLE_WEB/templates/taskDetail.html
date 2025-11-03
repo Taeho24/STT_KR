@@ -39,6 +39,21 @@
                 </div>
             </section>
 
+            {% if status|lower == 'success' %}
+            <div class="speaker-mapping-section" id="speaker-mapping-section">
+                <h3 class="speaker-mapping-title">화자 이름 변경</h3>
+                <p class="speaker-mapping-description">자막에서 감지된 화자를 원하는 이름으로 변경할 수 있습니다.</p>
+                
+                <div class="speaker-mapping-container" id="speaker-mapping-container">
+                    <!-- 화자 매핑 입력 필드가 동적으로 생성됩니다 -->
+                </div>
+
+                <button class="apply-btn" id="apply-btn">
+                    적용 (자막 재생성)
+                </button>
+            </div>
+            {% endif %}
+
             <section class="caption-detail-section">
                 <h2 class="caption-detail-title">생성된 자막</h2>
                 
@@ -67,9 +82,11 @@
                             id="caption-textarea" 
                             spellcheck="false"
                             {% if subtitle %}readonly{% endif %}
-                            >{{ subtitle }}</textarea>
+                            >
+                            {{ subtitle }}
+                        </textarea>
                     </div>
-                    
+
                     <div class="caption-controls">
                         <button class="download-btn" id="download-btn">
                             다운로드
@@ -101,6 +118,8 @@
         const USER_ID = "{{ user_id }}";
         const TASK_ID = "{{ task_id }}";
         const INITIAL_STATUS = "{{ status|lower }}";
+
+        const SPEAKER_NAMES_MAP = JSON.parse('{{ speaker_name|safe }}');
     </script>
     <script type="module" src="{% static 'js/taskDetail.js' %}"></script>
 </body>

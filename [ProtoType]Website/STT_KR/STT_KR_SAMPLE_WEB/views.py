@@ -1,5 +1,6 @@
 import os
 import uuid
+import json
 
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponseServerError, Http404, HttpResponse
@@ -7,12 +8,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.contrib.auth.models import User # Django 기본 User 모델 임포트
 from django.db.models import ObjectDoesNotExist
+
 from celery.result import AsyncResult
 from kombu.exceptions import OperationalError as KombuOperationalError
 
 from .models import UserTask, TaskInfo
-
 from .tasks import process_and_generate_srt_task
+from .utils.db_manager import DBManager
+from .utils.subtitle_generator import SubtitleGenerator 
 
 def get_or_create_anonymous_user(request):
     """세션 ID를 기반으로 익명 사용자 객체를 가져오거나 새로 생성합니다."""
@@ -88,33 +91,29 @@ def get_task_status_api(request, task_id):
     - 작업 실패/오류: 500 Internal Server Error
     """
     try:
+        db_manager = DBManager(task_id=task_id)
+
         # Celery 결과 객체 조회
         result = AsyncResult(task_id)
         celery_status = result.status
         
-        # DB에서 UserTask와 TaskInfo 조회 (Celery 상태 기반으로 DB 업데이트 및 결과 가져오기)
-        user_task = get_object_or_404(UserTask, task_id=task_id)
-        task_result = TaskInfo.objects.filter(task=user_task).first()
+        current_status = db_manager.load_task_status
 
         # DB 상태 업데이트
-        if user_task.status != celery_status:
-            user_task.status = celery_status
-            user_task.save()
+        if current_status != celery_status:
+            current_status = celery_status
+            db_manager.update_task_status(current_status)
         
         # 작업 완료 여부 확인
         if result.ready():
             if result.successful():
                 # 작업 성공 시: Celery에서 최종 결과(SRT)를 가져옵니다.
-                srt_text = result.get()
+                srt_text = db_manager.load_srt_subtitle()
                 
                 # DB에 결과가 없으면 저장 (안정성 확보)
-                if not task_result or task_result.subtitle != srt_text:
-                    if task_result:
-                        task_result.subtitle = srt_text
-                        task_result.save()
-                    else:
-                        # TaskInfo 객체가 없으면 새로 생성 (에러 방지)
-                        TaskInfo.objects.create(task=user_task, subtitle=srt_text, config={})
+                if not db_manager.get_task() or db_manager.load_srt_subtitle == "":
+                    srt_text = result.get()
+                    db_manager.update_srt_subtitle(srt_subtitle=srt_text)
                 
                 # 클라이언트에게 SRT 텍스트를 text/plain으로 반환
                 return HttpResponse(srt_text, content_type="text/plain; charset=utf-8")
@@ -136,9 +135,10 @@ def get_task_status_api(request, task_id):
     except KombuOperationalError:
         # Celery (Redis) 연결 실패 시
         print(f"경고: Celery 브로커 연결 실패. DB 상태 사용.")
+        current_status = db_manager.load_task_status()
         # DB 상태가 PENDING/STARTED이면 'processing'으로 응답
-        if user_task.status in ['PENDING', 'STARTED']:
-            return JsonResponse({"status": "processing", "current_status": user_task.status}, status=200)
+        if current_status in ['PENDING', 'STARTED']:
+            return JsonResponse({"status": "processing", "current_status": current_status}, status=200)
         
         # DB 상태가 실패면 500 응답
         return HttpResponseServerError("자막 생성 실패: 서버 통신 오류", status=500)
@@ -208,8 +208,9 @@ def generate_caption(request):
 
         TaskInfo.objects.create(
             task=user_task,
-            subtitle="",          # 빈 문자열(공백)로 초기화
-            config=subtitle_settings # 수집한 설정값 저장
+            srt_subtitle="",          # 빈 문자열(공백)로 초기화
+            config=subtitle_settings, # 수집한 설정값 저장
+            segment={}
         )
 
         # 클라이언트에게 즉시 202 응답과 작업 ID를 전달
@@ -275,51 +276,42 @@ def task_list(request, user_id):
 
 def task_detail(request, task_id):
     try:
-        # DB에서 기본 정보 조회 (TaskInfo 모델이 UserTask와 OneToOneField로 연결되어 있다고 가정)
-        user_task = get_object_or_404(UserTask, task_id=task_id)
-        
-        # TaskInfo에서 자막, Config 등의 상세 정보를 가져옵니다.
-        # TaskInfo가 UserTask의 PK를 공유하므로, task_id를 통해 접근합니다.
-        task_result = TaskInfo.objects.filter(task=user_task).first()
-        
+        db_manager = DBManager(task_id=task_id)
+
         # Celery 상태를 조회하고 DB를 업데이트 (get_caption_status의 로직 일부 재사용)
-        current_status = user_task.status
-        srt_text = task_result.subtitle if task_result else None
+        current_status = db_manager.load_task_status()
+        srt_text = db_manager.load_srt_subtitle()
+        config = db_manager.load_config()
+        user_id = db_manager.load_user_id()
+        created_time = db_manager.load_index()
         
         try:
             result = AsyncResult(task_id)
             celery_status = result.status
             
-            if user_task.status != celery_status:
-                user_task.status = celery_status
-                user_task.save()
-            
-            # Celery가 최종 결과를 가지고 있지만 DB에 없을 경우, DB에 저장 (안정성 확보)
-            if celery_status == 'SUCCESS' and (not task_result or not task_result.subtitle):
-                srt_text = result.get()
-                
-                if task_result:
-                    task_result.subtitle = srt_text
-                    task_result.save()
-                else:
-                    # TaskInfo 객체가 없으면 새로 생성 (에러 방지)
-                    TaskInfo.objects.create(task=user_task, subtitle=srt_text, config={})
-            
-            current_status = celery_status
+            if current_status != celery_status:
+                db_manager.update_task_status(celery_status)
+                if srt_text == "":
+                    srt_text = result.get()
+                    db_manager.update_srt_subtitle(srt_subtitle=srt_text)
 
         except KombuOperationalError:
             print(f"경고: Celery 연결 실패. DB 상태 사용.")
         except Exception as e:
             print(f"경고: Celery 조회 중 오류. DB 상태 사용. 오류: {e}")
+        
+        speaker_dict = db_manager.get_speaker_name()
+        speaker_name = json.dumps(speaker_dict)
 
         # Context 구성
         context = {
             'task_id': task_id,
-            'user_id': user_task.user_id,
+            'user_id': user_id,
             'status': current_status,
-            'created_time': user_task.id, # timestamp_id 대신 실제 생성 시간 필드가 있다면 사용 권장
-            'subtitle': srt_text if srt_text else '',
-            'config_data': task_result.config if task_result and task_result.config else {},
+            'speaker_name': speaker_name,
+            'created_time': created_time, # timestamp_id 대신 실제 생성 시간 필드가 있다면 사용 권장
+            'subtitle': srt_text,
+            'config_data': config if config else {},
             'is_finished': (current_status == 'SUCCESS' or current_status == 'FAILURE' or current_status == 'REVOKED'),
         }
 
@@ -355,6 +347,45 @@ def delete_task(request, task_id):
             return HttpResponseServerError(f"삭제 중 오류 발생: {e}")
     
     return JsonResponse({'error': 'Method not allowed'}, status=405) # POST 외의 요청은 거부
+
+@csrf_exempt
+def update_speaker_name(request, task_id):
+    """
+    사용자가 입력한 새로운 화자 이름 딕셔너리를 받아 자막에 적용하고 결과를 반환하는 API입니다.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    try:
+        db_manager = DBManager(task_id=task_id)
+
+        # 요청 본문(JSON)에서 새로운 이름 딕셔너리({Original: New})를 읽어옵니다.
+        try:
+            data = json.loads(request.body)
+            new_names_map = data.get('new_names') # {"SPEAKER_00": "김철수", ...}
+            if not isinstance(new_names_map, dict):
+                 raise ValueError("Invalid format for new_names.")
+        except (json.JSONDecodeError, ValueError) as e:
+            return JsonResponse({'error': f'Invalid JSON data or format: {e}'}, status=400)
+        
+        segments = db_manager.update_speaker_name(new_names=new_names_map)
+
+        db_manager.update_segment(segment=segments)
+
+        sg = SubtitleGenerator(task_id=task_id)
+        
+        srt_subtitle = sg.generate_srt_subtitle()
+
+        db_manager.update_srt_subtitle(srt_subtitle)
+        
+        # 클라이언트에게 수정된 SRT 텍스트를 반환
+        return HttpResponse(srt_subtitle, content_type="text/plain; charset=utf-8")
+
+    except ObjectDoesNotExist:
+        return JsonResponse({'error': 'Task not found in database.'}, status=404)
+    except Exception as e:
+        print(f"ERROR processing speaker mapping: {e}")
+        return HttpResponseServerError(f"화자 이름 변경 중 오류 발생: {e}", status=500)
 
 def index(request):
     # 작업 ID와 사용자 정보를 DB에 저장하는 로직 추가
