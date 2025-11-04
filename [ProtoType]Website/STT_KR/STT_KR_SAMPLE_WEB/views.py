@@ -53,6 +53,8 @@ def get_task_list_api(request, user_id):
     user_tasks = UserTask.objects.filter(user=user).order_by('-id')
     
     for user_task in user_tasks:
+        db_manager = DBManager(task_id=user_task.task_id)
+        file_name = db_manager.load_file_name()
         current_status = user_task.status
         
         # Celery 상태 조회 및 DB 업데이트 로직은 그대로 유지
@@ -74,6 +76,7 @@ def get_task_list_api(request, user_id):
         
         task_list.append({
             "task_id": user_task.task_id,
+            "file_name": file_name,
             "status": current_status, 
             "timestamp_id": user_task.id, 
         })
@@ -154,6 +157,7 @@ def generate_caption(request):
 
     try:
         audio_file = request.FILES["audio"]
+        file_name = request.POST.get("file_name", "unknown_file")
 
         # 파일명 충돌을 피하기 위해 고유한 파일명 사용
         id = uuid.uuid4()
@@ -208,6 +212,7 @@ def generate_caption(request):
 
         TaskInfo.objects.create(
             task=user_task,
+            file_name=file_name,
             srt_subtitle="",          # 빈 문자열(공백)로 초기화
             config=subtitle_settings, # 수집한 설정값 저장
             segment={}
@@ -242,6 +247,8 @@ def task_list(request, user_id):
     user_tasks = UserTask.objects.filter(user=user).order_by('-id')
     
     for user_task in user_tasks:
+        db_manager = DBManager(task_id=user_task.task_id)
+        file_name = db_manager.load_file_name()
         current_status = user_task.status
         
         # Celery 상태 조회 및 DB 업데이트 로직은 그대로 유지
@@ -263,6 +270,7 @@ def task_list(request, user_id):
         
         task_list.append({
             "task_id": user_task.task_id,
+            "file_name": file_name,
             "status": current_status, 
             "timestamp_id": user_task.id, 
         })
@@ -284,6 +292,7 @@ def task_detail(request, task_id):
         config = db_manager.load_config()
         user_id = db_manager.load_user_id()
         created_time = db_manager.load_index()
+        file_name = db_manager.load_file_name()
         
         try:
             result = AsyncResult(task_id)
@@ -307,6 +316,7 @@ def task_detail(request, task_id):
         context = {
             'task_id': task_id,
             'user_id': user_id,
+            'file_name': file_name,
             'status': current_status,
             'speaker_name': speaker_name,
             'created_time': created_time, # timestamp_id 대신 실제 생성 시간 필드가 있다면 사용 권장

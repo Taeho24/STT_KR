@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="task-item-left">
                                     <span class="task-title">작업 ID: ${task.task_id.slice(0, 8)}...</span>
                                     <span class="task-timestamp">생성 순번: #${task.timestamp_id}</span>
+                                    <span class="task-filename">${task.file_name}</span>
                                 </div>
                                 <div class="task-item-right">
                                     <span class="task-status status-${task.status.toLowerCase()}">${task.status}</span>

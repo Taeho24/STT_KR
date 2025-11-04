@@ -153,6 +153,33 @@ class DBManager:
         except Exception as e:
             print(f"오류: DB에서 segments 로드 중 오류 발생: {e}")
             return ""
+    
+    def update_file_name(self, file_name):
+        try:
+            # UserTask를 조회하여 TaskInfo 객체를 불러오기
+            task_info = self.get_task()
+            
+            # TaskInfo 모델의 file_name 필드에 데이터를 JSON 형태로 저장
+            task_info.file_name = file_name
+            task_info.save()
+
+        except Exception as e:
+            print(f"오류: DB에 file_name 저장 중 예기치 않은 오류 발생: {e}")
+    
+    def load_file_name(self):
+        try:
+            task_info = self.get_task()
+
+            # TaskInfo의 file_name 필드에서 데이터를 로드
+            if task_info.file_name != "":
+                return task_info.file_name
+            else:
+                print(f"경고: Task ID task_id의 DB에 file_name 데이터가 비어 있습니다.")
+                return ""
+            
+        except Exception as e:
+            print(f"오류: DB에서 segments 로드 중 오류 발생: {e}")
+            return ""
         
     def update_speaker_name(self, new_names: dict):
         """

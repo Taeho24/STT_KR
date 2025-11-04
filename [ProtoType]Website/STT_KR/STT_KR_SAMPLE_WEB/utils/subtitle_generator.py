@@ -95,8 +95,8 @@ class SubtitleGenerator:
 
         print("오디오 특성 분석 중...")
         audio_analyzer = AudioAnalyzer(sample_rate=16000)
-        segments = audio_analyzer.analyze_voice_type(segments, audio)
-
+        segments = audio_analyzer.classify_voice_types(segments, audio)
+        
         if language_code == 'en':
             # 감정 분류기 초기화 (중복 제거)
             print("감정 분류 모델 로드 중...")
@@ -128,6 +128,17 @@ class SubtitleGenerator:
             print(f"인식된 언어가 'en'이 아닌 '{language_code}'이기 때문에 감정 분석 과정을 생략합니다.")
 
         self.db_manager.update_segment(segments)
+
+        # 오디오 처리 후 파일 삭제
+        try:
+            if os.path.exists(self.audio_path):
+                os.remove(self.audio_path)
+                print(f"입력 오디오 파일 삭제 완료: {self.audio_path}")
+            else:
+                print(f"경고: 삭제하려던 오디오 파일이 이미 존재하지 않습니다: {self.audio_path}")
+        except Exception as e:
+            # 권한 문제 등으로 삭제가 실패할 경우 경고만 출력하고 계속 진행
+            print(f"오디오 파일 삭제 실패: {e}")
 
         return segments
     
