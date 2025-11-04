@@ -146,7 +146,12 @@
                 <button id="add-word-btn" class="add-btn">+ 추가</button>
                 </div>
 
-                <div class="preview-controls">
+                <div class="loading" id="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p id="loading-status-text">오디오를 추출 중입니다. 잠시만 기다려주세요...</p>
+                </div>
+
+                <div class="preview-controls" id="preview-controls" style="display: block;">
                     <button class="preview-btn" id="preview-btn">미리보기</button>
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>

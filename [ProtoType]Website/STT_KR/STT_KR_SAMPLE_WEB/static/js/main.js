@@ -31,8 +31,6 @@ disgust: { name: '혐오', defaultColor: '#008080' }
 // newEmotion: { name: '감정', defaultColor: '#색상코드' }
 };
 
-const DEFAULT_HIGHLIGHT_COLOR = '#FFFF00';
-
 // DOM 요소 선택
 const uploadArea = document.getElementById('upload-area');
 const fileInput = document.getElementById('file-input');
@@ -42,6 +40,8 @@ const videoPreview = document.getElementById('video-preview');
 const previewBtn = document.getElementById('preview-btn');
 const generateBtn = document.getElementById('generate-btn');
 const cancelBtn = document.getElementById('cancel-btn');
+const previewCtrls = document.getElementById('preview-controls');
+const loading = document.getElementById('loading');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -58,13 +58,20 @@ const emotionColorsGrid = document.getElementById('emotion-colors-grid');
 const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
 const resethighlightBtn = document.getElementById('reset-highlight-btn');
 
-const tasksList = document.getElementById('tasks-list');
-const tasksContent = document.getElementById('tasks-content');
+let audioBlob = null;
 
 const ffmpeg = new FFmpeg();
-await ffmpeg.load();
 
-let audioBlob = null;
+(async () => {
+    try {
+        await ffmpeg.load();
+    } catch (e) {
+        console.error("FFmpeg 초기화 실패:", e);
+        alert("FFmpeg 초기화 실패. 오디오 추출이 불가능합니다.");
+    }
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
 
 // 값을 퍼센트로 변환
 function valueToPercent(value) {
@@ -192,8 +199,12 @@ return;
 }
 
 try {
+if(loading) loading.style.display = 'block'
+if(previewCtrls) previewCtrls.style.display = 'none'
 await extractAudio(videoFile);
 } catch (err) {
+if(loading) loading.style.display = 'none'
+if(previewCtrls) previewCtrls.style.display = 'block'
 console.error('오디오 추출 실패:', err);
 alert('오디오 추출에 실패했습니다.');
 return;
@@ -592,3 +603,4 @@ document.getElementById('add-word-btn').addEventListener('click', function() {
 });
 
 updateSliderUI()
+});
