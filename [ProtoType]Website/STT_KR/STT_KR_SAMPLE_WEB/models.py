@@ -43,6 +43,13 @@ class TaskInfo(models.Model):
         primary_key=True,
         verbose_name="Celery 작업"
     )
+
+    file_name = models.CharField(
+        max_length=255, 
+        verbose_name="파일명",
+        null=True,  # 파일을 찾지 못할 경우를 대비하여 null 허용
+        blank=True  # 폼에서 필수가 아님
+    )
     
     # srt_subtitle: 생성된 최종 srt 자막 텍스트
     srt_subtitle = models.TextField(
