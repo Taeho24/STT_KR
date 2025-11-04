@@ -92,6 +92,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (response.ok) {
+                const updateNamesMap = {}
+                for (const newName of Object.values(newNamesMap)) {
+                    // newName을 Key로, 빈 문자열을 Value로 설정
+                    updateNamesMap[newName] = ""; 
+                }
+
+                speakerMappingContainer.innerHTML = "";
+
+                // 딕셔너리의 {originalName: newName} 쌍을 순회하며 입력 필드 생성
+                Object.entries(updateNamesMap).forEach(([originalSpeaker, newName], index) => {
+                    const mappingItem = document.createElement("div");
+                    mappingItem.className = "speaker-mapping-item";
+
+                    const speakerNumber = index + 1;
+
+                    // HTML 생성 (newName을 value에 넣어 기본값으로 표시)
+                    mappingItem.innerHTML = `
+                        <label class="speaker-label" for="speaker-${originalSpeaker}">
+                            <span class="speaker-original">${originalSpeaker}</span>
+                            <span class="speaker-arrow">→</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="speaker-${originalSpeaker}" 
+                            class="speaker-input" 
+                            placeholder="화자 ${speakerNumber} 이름 입력"
+                            data-speaker="${originalSpeaker}"
+                            value="${newName || ''}"
+                        >
+                    `;
+                    speakerMappingContainer.appendChild(mappingItem);
+                });
+
                 const newSubtitle = await response.text();
                 captionTextarea.value = newSubtitle;
                 alert('화자 이름 변경이 성공적으로 적용되었습니다.');
