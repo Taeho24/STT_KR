@@ -8,7 +8,11 @@ from django.http import JsonResponse, HttpResponse, HttpResponseServerError
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 
-from celery.result import AsyncResult
+# Celery is optional. Import only if available and enabled.
+try:
+    from celery.result import AsyncResult  # type: ignore
+except Exception:  # ImportError or others
+    AsyncResult = None  # type: ignore
 from .utils.config import config
 from .utils.subtitle_config import set_subtitle_settings
 from .utils.subtitle_generator import SubtitleGenerator
@@ -126,7 +130,11 @@ def generate_caption(request):
 
 @csrf_exempt
 def get_caption_status(request, task_id):
-    result = AsyncResult(task_id)
+    # If Celery is not installed/used, return 404 for status endpoint
+    if not getattr(settings, 'USE_CELERY', False) or AsyncResult is None:
+        return JsonResponse({"error": "Celery not enabled"}, status=404)
+
+    result = AsyncResult(task_id)  # type: ignore
 
     if result.ready(): # 작업이 완료되었는지 확인
         if result.successful(): # 작업이 성공했는지 확인
