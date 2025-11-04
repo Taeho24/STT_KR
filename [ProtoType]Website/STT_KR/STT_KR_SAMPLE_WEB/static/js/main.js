@@ -22,12 +22,12 @@ let videoFileDimensions = null;
 // 감정 데이터 정의
 const EMOTIONS = {
 neutral: { name: '중립', defaultColor: '#FFFFFF' },
-happy: { name: '행복', defaultColor: '#00FF00' },
-sad: { name: '슬픔', defaultColor: '#0000FF' },
-angry: { name: '분노', defaultColor: '#FF0000' },
-fear: { name: '공포', defaultColor: '#800080' },
-surprise: { name: '놀람', defaultColor: '#00FFFF' },
-disgust: { name: '혐오', defaultColor: '#008080' }
+happy: { name: '행복', defaultColor: '#A8E6A1' },
+sad: { name: '슬픔', defaultColor: '#A7C7E7' },
+angry: { name: '분노', defaultColor: '#F7A1A1' },
+fear: { name: '공포', defaultColor: '#C9A7E4' },
+surprise: { name: '놀람', defaultColor: '#7Fa6D9' },
+disgust: { name: '혐오', defaultColor: '#A1E0D3' }
 // newEmotion: { name: '감정', defaultColor: '#색상코드' }
 };
 
