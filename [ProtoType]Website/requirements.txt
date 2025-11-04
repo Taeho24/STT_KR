@@ -6,7 +6,7 @@ typing_extensions==4.13.2
 tzdata==2025.2
 
 # Core ASR/Alignment stack (CPU-friendly)
-torch>=2.3,<2.6
+torch>=2.6
 faster-whisper>=1.0.0
 ctranslate2>=4.2.0
 onnxruntime>=1.17.0

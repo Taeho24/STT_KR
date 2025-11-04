@@ -51,8 +51,18 @@ try {
 
     # Run migrations (safe no-op if none)
     $ManageDir = Join-Path $WebRoot "STT_KR"
+    if (-not (Test-Path -LiteralPath $ManageDir)) {
+        Pause-OnError "[error] Manage dir not found: $ManageDir`nCheck that you unzipped the repo correctly. Press Enter to exit..."
+        return
+    }
     Push-Location $ManageDir
     try {
+        # Print Python info for debugging
+        & $PythonExe - << 'PYINFO'
+import sys, platform
+print('[env] Python:', sys.version)
+print('[env] Platform:', platform.platform())
+PYINFO
         Write-Host "[migrate] Applying migrations" -ForegroundColor Cyan
         & $PythonExe manage.py migrate
 
