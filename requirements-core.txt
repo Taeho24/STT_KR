@@ -1,2 +1,0 @@
-# Deprecated: use requirements.txt only.
-# This file is kept to avoid breaking references; do not install from here.
