@@ -1079,6 +1079,12 @@ footer {
     margin-left: 10px;
 }
 
+.task-filename {
+    font-weight: 600;
+    color: #2c2c2c;
+    margin-left: 10px;
+}
+
 /* 동적 상태 표시 */
 .task-status {
     padding: 4px 8px;

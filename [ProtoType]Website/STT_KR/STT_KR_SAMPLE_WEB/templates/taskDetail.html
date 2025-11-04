@@ -33,6 +33,10 @@
                         <span class="info-value">#{{ created_time }}</span>
                     </div>
                     <div class="task-info-item">
+                        <span class="info-label">파일 이름:</span>
+                        <span class="info-value">{{ file_name }}</span>
+                    </div>
+                    <div class="task-info-item">
                         <span class="info-label">상태:</span>
                         <span class="info-value status status-{{ status|lower }}" id="task-status">{{ status }}</span>
                     </div>
@@ -118,8 +122,8 @@
         const USER_ID = "{{ user_id }}";
         const TASK_ID = "{{ task_id }}";
         const INITIAL_STATUS = "{{ status|lower }}";
-
         const SPEAKER_NAMES_MAP = JSON.parse('{{ speaker_name|safe }}');
+        const FILE_NAME = "{{ file_name }}";
     </script>
     <script type="module" src="{% static 'js/taskDetail.js' %}"></script>
 </body>

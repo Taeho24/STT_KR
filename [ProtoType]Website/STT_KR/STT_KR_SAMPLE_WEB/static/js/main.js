@@ -19,6 +19,9 @@ let sliderRect = null;
 // 실제 비디오 파일의 해상도를 저장할 변수
 let videoFileDimensions = null;
 
+let audioBlob = null;
+let fileName = null;
+
 // 감정 데이터 정의
 const EMOTIONS = {
   neutral: { name: '중립', defaultColor: '#FFFFFF' },
@@ -57,8 +60,6 @@ const highlightColor = document.getElementById('highlight-color');
 const emotionColorsGrid = document.getElementById('emotion-colors-grid');
 const resetEmotionsBtn = document.getElementById('reset-emotions-btn');
 const resethighlightBtn = document.getElementById('reset-highlight-btn');
-
-let audioBlob = null;
 
 const ffmpeg = new FFmpeg();
 
@@ -214,6 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.wav');
 
+    if (fileName) {
+      formData.append('file_name', fileName);
+    }
+
     // 자막 스타일 수집
     formData.append('default_font_size', defaultFontSize.value);
     formData.append('min_font_size', minFontSize.value);
@@ -313,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 폰트 크기 유효성 검사??
+  // 폰트 크기 유효성 검사
   function validateFontSizes() {
     const defaultSize = parseInt(defaultFontSize.value);
     const minSize = parseInt(minFontSize.value);
@@ -535,6 +540,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (file.size > 500 * 1024 * 1024) {
       alert('파일 크기는 500MB를 초과할 수 없습니다.');
       return;
+    }
+
+    // 파일 이름 저장
+    const fullFileName = file.name;
+    const lastDotIndex = fullFileName.lastIndexOf('.');
+    
+    if (lastDotIndex !== -1) {
+        // 마지막 점(.) 이전 부분만 저장 (확장자 제거)
+        fileName = fullFileName.substring(0, lastDotIndex);
+    } else {
+        // 확장자가 없는 경우 전체 파일 이름을 저장
+        fileName = fullFileName;
     }
 
     // 비디오 미리보기 설정
