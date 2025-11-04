@@ -6,7 +6,7 @@ import numpy as np
 import librosa
 import math
 from collections import defaultdict
-from config import config
+from .config import config
 
 class AudioAnalyzer:
     """오디오 분석 및 특성 추출 클래스"""
