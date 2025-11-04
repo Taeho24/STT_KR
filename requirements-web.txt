@@ -1,0 +1,2 @@
+# Deprecated: use requirements.txt only.
+# Web/prototype dependencies are not part of the core release.

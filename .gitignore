@@ -23,3 +23,9 @@ dump.rdb
 env/
 ENV/
 .pip/
+
+# Project data (avoid committing large local/test artifacts)
+assets/**
+result/**
+private/**
+.cache/**
