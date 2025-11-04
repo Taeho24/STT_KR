@@ -95,8 +95,8 @@ class SubtitleGenerator:
 
         print("오디오 특성 분석 중...")
         audio_analyzer = AudioAnalyzer(sample_rate=16000)
-        segments = audio_analyzer.analyze_voice_type(segments, audio)
-
+        segments = audio_analyzer.classify_voice_types(segments, audio)
+        
         if language_code == 'en':
             # 감정 분류기 초기화 (중복 제거)
             print("감정 분류 모델 로드 중...")

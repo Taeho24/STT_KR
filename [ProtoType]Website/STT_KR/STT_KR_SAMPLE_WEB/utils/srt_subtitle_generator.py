@@ -32,31 +32,6 @@ class SRTSubtitleGenerator:
                 new_segments.append(segment)
         return new_segments
 
-    def analyze_voice_type(self, segments, sample_rate=16000):
-        def compute_rms(audio_segment):
-            if isinstance(audio_segment, np.ndarray):
-                audio_segment = torch.tensor(audio_segment, dtype=torch.float32)
-            return torch.sqrt(torch.mean(audio_segment ** 2)).item()
-
-        for segment in segments:
-            for word in segment.get("words", []):
-                if "start" not in word or "end" not in word:
-                    continue
-                start_sample = int(word["start"] * sample_rate)
-                end_sample = int(word["end"] * sample_rate)
-                audio_segment = self.audio[start_sample:end_sample]
-                if len(audio_segment) == 0:
-                    word["type"] = -1
-                    continue
-                rms = compute_rms(audio_segment)
-                if rms < 0.02:
-                    word["type"] = 0  # 속삭임
-                elif rms > 0.07:
-                    word["type"] = 2  # 고함
-                else:
-                    word["type"] = 1  # 일반
-        return segments
-
     def format_timestamp(self, seconds):
         h, m = divmod(int(seconds), 3600)
         m, s = divmod(m, 60)
@@ -87,18 +62,18 @@ class SRTSubtitleGenerator:
                 highlighted_sentence = f"<font color={emotion_color} size={self.default_font_size}px>[{speaker}]\n"
                 for j, w in enumerate(words):
                     word_text = w["word"]
-                    word_type = w.get("type", 1)
+                    word_type = w.get("voice_type", 'normal')
                     if j == i:
-                        if word_type == 0:
+                        if word_type == 'whisper':
                             highlighted_sentence += f'<font color={self.highlight_color} size={self.min_font_size}px>{word_text}</font> '
-                        elif word_type == 2:
+                        elif word_type == 'shout':
                             highlighted_sentence += f'<font color={self.highlight_color} size={self.max_font_size}px>{word_text}</font> '
                         else:
                             highlighted_sentence += f'<font color={self.highlight_color}>{word_text}</font> '
                     else:
-                        if word_type == 0:
+                        if word_type == 'whisper':
                             highlighted_sentence += f'<font size={self.min_font_size}px>{word_text}</font> '
-                        elif word_type == 2:
+                        elif word_type == 'shout':
                             highlighted_sentence += f'<font size={self.max_font_size}px>{word_text}</font> '
                         else:
                             highlighted_sentence += word_text + " "
