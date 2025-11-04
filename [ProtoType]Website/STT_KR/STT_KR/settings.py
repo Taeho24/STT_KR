@@ -154,8 +154,12 @@ STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'STT_KR_SAMPLE_WEB/static'),
-    os.path.join(BASE_DIR, 'node_modules'),
 ]
+
+# Include node_modules static only if present (optional)
+_NODE_MODULES_DIR = os.path.join(BASE_DIR, 'node_modules')
+if os.path.isdir(_NODE_MODULES_DIR):
+    STATICFILES_DIRS.append(_NODE_MODULES_DIR)
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
