@@ -129,6 +129,17 @@ class SubtitleGenerator:
 
         self.db_manager.update_segment(segments)
 
+        # 오디오 처리 후 파일 삭제
+        try:
+            if os.path.exists(self.audio_path):
+                os.remove(self.audio_path)
+                print(f"입력 오디오 파일 삭제 완료: {self.audio_path}")
+            else:
+                print(f"경고: 삭제하려던 오디오 파일이 이미 존재하지 않습니다: {self.audio_path}")
+        except Exception as e:
+            # 권한 문제 등으로 삭제가 실패할 경우 경고만 출력하고 계속 진행
+            print(f"오디오 파일 삭제 실패: {e}")
+
         return segments
     
     def modify_proper_nouns(self, proper_nouns: list):
