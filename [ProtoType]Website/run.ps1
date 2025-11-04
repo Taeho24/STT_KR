@@ -57,12 +57,10 @@ try {
     }
     Push-Location $ManageDir
     try {
-        # Print Python info for debugging
-        & $PythonExe - << 'PYINFO'
-import sys, platform
-print('[env] Python:', sys.version)
-print('[env] Platform:', platform.platform())
-PYINFO
+        # Print Python info for debugging (PowerShell-safe)
+        Write-Host "[env] Dumping Python info..." -ForegroundColor Cyan
+        & $PythonExe -c "import sys; print('[env] Python:', sys.version)"
+        & $PythonExe -c "import platform; print('[env] Platform:', platform.platform())"
         Write-Host "[migrate] Applying migrations" -ForegroundColor Cyan
         & $PythonExe manage.py migrate
 
