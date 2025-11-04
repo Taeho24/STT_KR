@@ -1,0 +1,25 @@
+__pycache__/
+
+# Development
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/static/private/*.txt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/result/*.srt
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/result/*.json
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/config/*.json
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/asset/*.wav
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/**
+\[ProtoType\]Website/STT_KR/STT_KR_SAMPLE_WEB/tmp/result/.cache/**
+\[ProtoType\]Website/STT_KR/node_modules/**
+emotion_classification.log
+
+# Environments
+.venv
+venv/
+venv.bak/
+
+# redis
+redis-stable/
+dump.rdb
+
+env/
+ENV/
+.pip/

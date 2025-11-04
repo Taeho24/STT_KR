@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveCaption - 동영상 자막 생성 서비스</title>
+    
+    <!-- Custom static CSS file -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <!-- 헤더 섹션 -->
+    <header>
+        <div class="container">
+            <h1 class="title">LiveCaption</h1>
+            <p class="subtitle">동영상 자막 자동 생성 서비스</p>
+        </div>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="container">
+        <div class="main-content">
+            <!-- 업로드 섹션 -->
+            <section class="upload-section">
+                <h2 class="upload-title">동영상 업로드</h2>
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">동영상 파일을 여기에 끌어다 놓거나</p>
+                    <button class="upload-btn" id="select-file-btn">파일 선택</button>
+                    <input type="file" id="file-input" class="file-input" accept="video/*">
+                    <p class="upload-info">지원 형식: MP4, AVI, MOV, WMV | 최대 크기: 500MB</p>
+                </div>
+            </section>
+
+            <!-- 비디오 미리보기 섹션 -->
+            <section class="preview-section" id="preview-section">
+                <h2 class="preview-title">동영상 미리보기</h2>
+                <div class="video-container">
+                    <video class="video-preview" id="video-preview" controls>
+                        <track id="subtitleTrack" kind="subtitles" srclang="ko" label="Korean">
+                    </video>
+                </div>
+
+                <!-- 자막 설정 옵션 -->
+                <div class="caption-settings" id="caption-settings">
+                    <h3 class="settings-title">자막 설정</h3>
+                    
+                    <!-- 폰트 크기 설정 - 멀티 핸들 슬라이더 -->
+                    <div class="settings-group">
+                        <h4>자막 폰트 크기 설정</h4>
+                        
+                        <div class="multi-slider-container">
+                            <!-- 라벨 표시 -->
+                            <div class="multi-slider-labels">
+                                <span class="slider-label min" id="min-label">최소: 20px</span>
+                                <span class="slider-label default" id="default-label">기본: 24px</span>
+                                <span class="slider-label max" id="max-label">최대: 28px</span>
+                            </div>
+
+                            <!-- 멀티 핸들 슬라이더 -->
+                            <div class="multi-slider" id="multi-slider">
+                                <!-- 슬라이더 트랙 -->
+                                <div class="slider-track">
+                                    <!-- 구간별 색상 표시 -->
+                                    <div class="slider-range min-range" id="min-range"></div>
+                                    <div class="slider-range default-range" id="default-range"></div>
+                                    <div class="slider-range max-range" id="max-range"></div>
+                                </div>
+
+                                <!-- 핸들 -->
+                                <div class="slider-handle min-handle" id="min-handle" data-type="min">
+                                    <div class="handle-tooltip" id="min-tooltip">최소: 20px</div>
+                                </div>
+
+                                <div class="slider-handle default-handle" id="default-handle" data-type="default">
+                                    <div class="handle-tooltip" id="default-tooltip">기본: 24px</div>
+                                </div>
+
+                                <div class="slider-handle max-handle" id="max-handle" data-type="max">
+                                    <div class="handle-tooltip" id="max-tooltip">최대: 28px</div>
+                                </div>
+                            </div>
+
+                            <!-- 숫자 입력 -->
+                            <div class="font-size-inputs">
+                                <div class="input-group">
+                                    <label>최소</label>
+                                    <input type="number" id="min-font-size" min="6" max="94" value="20">
+                                    <span>px</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>기본</label>
+                                    <input type="number" id="default-font-size" min="8" max="94" value="24">
+                                    <span>px</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>최대</label>
+                                    <input type="number" id="max-font-size" min="10" max="96" value="28">
+                                    <span>px</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 색상 설정 -->
+                    <div class="settings-group">
+                        <h4>자막 색상 설정</h4>
+                        <div class="color-settings">
+                            <div class="setting-item">
+                                <label for="highlight-color">하이라이트 색상</label>
+                                <input type="color" id="highlight-color" value="#FFFF00">
+                                    <div class="highlight-reset-container">
+                                    <button class="reset-highlight-btn" id="reset-highlight-btn">기본값 복원</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 감정별 색상 설정 -->
+                    <div class="settings-group">
+                        <h4>감정별 자막 색상 설정</h4>
+                        <div class="emotion-colors-container">
+                            <div class="emotion-colors-grid" id="emotion-colors-grid">
+                                <!-- 감정 색상 설정이 동적으로 생성됩니다 -->
+                            </div>
+                            <div class="emotion-actions">
+                                <button class="emotion-btn reset-emotions-btn" id="reset-emotions-btn">기본값 복원</button>
+                                <!-- 향후 감정 추가 기능을 위한 버튼 (현재는 숨김) -->
+                                <!-- <button class="emotion-btn add-emotion-btn" id="add-emotion-btn">감정 추가</button> -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 고유명사 입력 -->
+                <div class="settings-group">
+                <h4>고유명사 교정</h4>
+                <div id="custom-words-container">
+                    <!-- 동적으로 입력칸이 추가됨 -->
+                </div>
+                <button id="add-word-btn" class="add-btn">+ 추가</button>
+                </div>
+
+                <div class="preview-controls">
+                    <button class="preview-btn" id="preview-btn">미리보기</button>
+                    <button class="generate-btn" id="generate-btn">자막 생성하기</button>
+                    <button class="cancel-btn" id="cancel-btn">취소</button>
+                </div>
+
+            </section>
+
+            <!-- 자막 섹션 -->
+            <section class="caption-section" id="caption-section">
+                <h2 class="caption-title">생성된 자막</h2>
+                
+                <!-- 로딩 표시 -->
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>자막을 생성 중입니다. 잠시만 기다려주세요...</p>
+                </div>
+                
+                <!-- 자막 내용 -->
+                <div class="caption-content" id="caption-content">
+                    <textarea class="caption-textarea" id="caption-textarea" placeholder="자막이 여기에 표시됩니다..."></textarea>
+                    <div class="caption-controls">
+                        <button class="download-btn" id="download-btn">자막 다운로드</button>
+                        <div>
+                            <label for="format-select">형식:</label>
+                            <select class="format-select" id="format-select">
+                                <option value="srt">SRT</option>
+                                <option value="vtt">VTT</option>
+                                <option value="txt">TXT</option>
+                                <option value="ass">ASS</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 LiveCaption.</p>
+        </div>
+    </footer>
+
+    <!-- 자바스크립트 -->
+    <script type="module" src="{% static 'js/main.js' %}"></script>
+
+</body>
+</html>

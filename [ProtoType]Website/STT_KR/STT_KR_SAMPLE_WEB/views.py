@@ -1,7 +1,9 @@
 import os
+import json
 import uuid
 
 from django.shortcuts import render
+import traceback
 from django.http import JsonResponse, HttpResponse, HttpResponseServerError
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
@@ -18,11 +20,15 @@ def generate_caption(request):
 
     try:
         audio_file = request.FILES["audio"]
+        file_format = request.POST.get("file_format", "srt").strip().lower()
 
         # 파일명 충돌을 피하기 위해 고유한 파일명 사용
         id = uuid.uuid4()
         unique_filename = f"{id}_{audio_file.name}"
         audio_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'tmp', 'asset', unique_filename)
+
+        # 업로드 대상 디렉토리 보장
+        os.makedirs(os.path.dirname(audio_path), exist_ok=True)
 
         # django 서버는 windows, celery는 리눅스 환경에서 실행했을 경우의 경로 교정 (django, celery, redis 모두 리눅스 환경에서의 실행을 권장)
         wsl_path = audio_path.replace('C:', '/mnt/c').replace('\\', '/')
@@ -33,9 +39,30 @@ def generate_caption(request):
                 destination.write(chunk)
 
         # 고유명사 값 수집
+        # 고유명사 값 수집(JSON 문자열 또는 리스트 허용)
         proper_nouns = request.POST.get("proper_nouns", [])
+        if isinstance(proper_nouns, str) and proper_nouns:
+            try:
+                proper_nouns = json.loads(proper_nouns)
+            except Exception:
+                # 파싱 실패 시 안전하게 비움
+                proper_nouns = []
+        if not isinstance(proper_nouns, list):
+            proper_nouns = []
 
         # 프론트엔드 main.js는 감정 색상 키를 영어로 전송합니다.
+        # 사용자 입력 색상값(#RRGGBB)을 검증/정규화합니다. 유효하지 않으면 기본값 사용.
+        def norm_hex_color(v, default):
+            if not v:
+                return default
+            v = v.strip()
+            if v.startswith('#') and (len(v) == 7 or len(v) == 4):
+                return v
+            # Allow hex without '#'
+            if len(v) == 6:
+                return f"#{v}"
+            return default
+
         # 누락 시 안전한 기본값을 사용합니다.
         subtitle_settings = {
             "font": {
@@ -45,19 +72,25 @@ def generate_caption(request):
             },
             "hex_colors": {
                 "emotion_colors": {
-                    "neutral": request.POST.get("neutral", "#FFFFFF"),
-                    "happy": request.POST.get("happy", "#00FF00"),
-                    "sad": request.POST.get("sad", "#0000FF"),
-                    "angry": request.POST.get("angry", "#FF0000"),
-                    "fear": request.POST.get("fear", "#800080"),
-                    "surprise": request.POST.get("surprise", "#00FFFF"),
-                    "disgust": request.POST.get("disgust", "#008080"),
+                    "neutral": norm_hex_color(request.POST.get("neutral", "#FFFFFF"), "#FFFFFF"),
+                    "happy": norm_hex_color(request.POST.get("happy", "#00FF00"), "#00FF00"),
+                    "sad": norm_hex_color(request.POST.get("sad", "#0000FF"), "#0000FF"),
+                    "angry": norm_hex_color(request.POST.get("angry", "#FF0000"), "#FF0000"),
+                    "fear": norm_hex_color(request.POST.get("fear", "#800080"), "#800080"),
+                    "surprise": norm_hex_color(request.POST.get("surprise", "#00FFFF"), "#00FFFF"),
+                    "disgust": norm_hex_color(request.POST.get("disgust", "#008080"), "#008080"),
                 },
                 # default_color는 보통 중립과 동일하게 설정
-                "default_color": request.POST.get("neutral", "#FFFFFF"),
-                "highlight_color": request.POST.get("highlight_color", "#FFFF00")
+                "default_color": norm_hex_color(request.POST.get("neutral", "#FFFFFF"), "#FFFFFF"),
+                "highlight_color": norm_hex_color(request.POST.get("highlight_color", "#FFFF00"), "#FFFF00")
             }
         }
+
+        # 성능/기능 토글 수집(기본: 안전·보수적으로 ON)
+        enable_diarization = request.POST.get("enable_diarization", "1") in ("1", "true", "True")
+        enable_ser = request.POST.get("enable_ser", "1") in ("1", "true", "True")
+        enable_temporal_smoothing = request.POST.get("enable_temporal_smoothing", "1") in ("1", "true", "True")
+        fast_mode = request.POST.get("fast_mode", "0") in ("1", "true", "True")
 
         # 비동기/동기 전환: settings.USE_CELERY 플래그로 제어 (기본 False - 개발 편의)
         if getattr(settings, 'USE_CELERY', False):
@@ -67,15 +100,28 @@ def generate_caption(request):
             return JsonResponse({"task_id": task.id}, status=202)
         else:
             # 동기 처리 (개발/테스트 용)
-            generator = SubtitleGenerator(audio_path=audio_path)
+            generator = SubtitleGenerator(
+                audio_path=audio_path,
+                enable_diarization=enable_diarization,
+                enable_ser=enable_ser,
+                enable_temporal_smoothing=enable_temporal_smoothing,
+                fast_mode=fast_mode
+            )
             generator.process_video()
-            set_subtitle_settings(id, subtitle_settings)
+            # generator 내부 id(파일 베이스명) 기준으로 설정 파일을 저장해야
+            # 이후 SRT 생성 시 일관되게 로딩됩니다.
+            set_subtitle_settings(generator.id, subtitle_settings)
             if proper_nouns:
                 generator.modify_proper_nouns(proper_nouns)
-            srt_text = generator.generate_srt_subtitle()
-            return HttpResponse(srt_text, content_type="text/plain; charset=utf-8")
+            if file_format == 'ass':
+                ass_text = generator.generate_ass_subtitle()
+                return HttpResponse(ass_text, content_type="text/plain; charset=utf-8")
+            else:
+                srt_text = generator.generate_srt_subtitle()
+                return HttpResponse(srt_text, content_type="text/plain; charset=utf-8")
     except Exception as e:
         print("자막 생성 중 오류:", e)
+        traceback.print_exc()
         return HttpResponseServerError("자막 생성 실패")
 
 @csrf_exempt
