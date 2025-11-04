@@ -55,7 +55,8 @@ try {
         Pause-OnError "[error] Manage dir not found: $ManageDir`nCheck that you unzipped the repo correctly. Press Enter to exit..."
         return
     }
-    Push-Location $ManageDir
+    # Use -LiteralPath to handle brackets [] in folder names like [ProtoType]Website
+    Push-Location -LiteralPath $ManageDir
     try {
         # Print Python info for debugging (PowerShell-safe)
         Write-Host "[env] Dumping Python info..." -ForegroundColor Cyan
