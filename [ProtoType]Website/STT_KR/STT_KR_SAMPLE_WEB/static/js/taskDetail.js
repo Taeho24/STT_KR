@@ -163,7 +163,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 파일 이름 설정
-        const filename = `captions.${format}`;
+        let fileName = prompt("저장할 파일 이름을 입력하세요 (확장자 없이):", "captions");
+        if (!fileName) return; // 입력 취소 시 종료
+
+        // 파일명 안전 처리
+        fileName = fileName.replace(/[\\/:*?"<>|]/g, "_");
+
+        // 확장자 붙이기
+        const filename = `${fileName}.${format}`;
 
         // Blob 생성
         const blob = new Blob([content], { type: 'text/plain' });
