@@ -65,7 +65,7 @@
                 <button class="delete-btn">삭제</button>
                 {% endif %}
                 
-                {% if status|lower == 'failure' or status|lower == 'revoked' %}
+                {% if status|lower == 'failure' or status|lower == 'revoked' or status|lower == 'retry' %}
                 <div class="error-state" id="error-state">
                     <div class="error-icon">⚠️</div>
                     <p class="error-message" id="error-message">자막 생성에 실패했습니다. (오류 코드: {{ task_id }})</p>
