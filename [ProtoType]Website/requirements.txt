@@ -5,9 +5,8 @@ sqlparse==0.5.3
 typing_extensions==4.13.2
 tzdata==2025.2
 
-# Core ASR/Alignment stack
-torch>=2.2,<2.6
-torchaudio>=2.2,<2.6
+# Core ASR/Alignment stack (CPU-friendly)
+torch>=2.3,<2.6
 faster-whisper>=1.0.0
 ctranslate2>=4.2.0
 onnxruntime>=1.17.0
@@ -18,8 +17,8 @@ soundfile>=0.12
 tqdm>=4.66
 huggingface_hub>=0.23
 
-# WhisperX (alignment + model orchestration)
-whisperx @ git+https://github.com/m-bain/whisperx@master
+# WhisperX from PyPI (avoids Git requirement for novices)
+whisperx>=3.1
 
 # Optional: Google Generative AI client (guarded use)
 google-genai>=0.3.0; python_version >= '3.10'

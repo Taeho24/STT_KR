@@ -6,6 +6,14 @@
 
 $ErrorActionPreference = "Stop"
 
+function Pause-OnError {
+    param(
+        [string]$Message = "An error occurred. Press Enter to exit..."
+    )
+    Write-Host $Message -ForegroundColor Red
+    try { Read-Host | Out-Null } catch {}
+}
+
 function Ensure-Dir($path) {
     if (-not (Test-Path -LiteralPath $path)) {
         New-Item -ItemType Directory -Path $path | Out-Null
@@ -25,31 +33,35 @@ $env:TORCH_HOME = $CacheRoot
 Ensure-Dir $CacheRoot
 
 # Create venv if missing
-if (-not (Test-Path -LiteralPath $PythonExe)) {
-    Write-Host "[setup] Creating virtual environment at $VenvPath" -ForegroundColor Cyan
-    try {
-        & py -3 -m venv $VenvPath
-    } catch {
-        Write-Warning "Python launcher 'py' not found. Trying 'python'..."
-        & python -m venv $VenvPath
-    }
-}
-
-# Install dependencies
-Write-Host "[setup] Upgrading pip and installing requirements" -ForegroundColor Cyan
-& $PythonExe -m pip install --upgrade pip
-& $PythonExe -m pip install -r (Join-Path $WebRoot "requirements.txt")
-
-# Run migrations (safe no-op if none)
-$ManageDir = Join-Path $WebRoot "STT_KR"
-Push-Location $ManageDir
 try {
-    Write-Host "[migrate] Applying migrations" -ForegroundColor Cyan
-    & $PythonExe manage.py migrate
+    if (-not (Test-Path -LiteralPath $PythonExe)) {
+        Write-Host "[setup] Creating virtual environment at $VenvPath" -ForegroundColor Cyan
+        try {
+            & py -3 -m venv $VenvPath
+        } catch {
+            Write-Warning "Python launcher 'py' not found. Trying 'python'..."
+            & python -m venv $VenvPath
+        }
+    }
 
-    # Start server
-    Write-Host "[run] Starting dev server at http://127.0.0.1:8001/" -ForegroundColor Green
-    & $PythonExe manage.py runserver 127.0.0.1:8001
-} finally {
-    Pop-Location
+    # Install dependencies
+    Write-Host "[setup] Upgrading pip and installing requirements" -ForegroundColor Cyan
+    & $PythonExe -m pip install --upgrade pip
+    & $PythonExe -m pip install -r (Join-Path $WebRoot "requirements.txt")
+
+    # Run migrations (safe no-op if none)
+    $ManageDir = Join-Path $WebRoot "STT_KR"
+    Push-Location $ManageDir
+    try {
+        Write-Host "[migrate] Applying migrations" -ForegroundColor Cyan
+        & $PythonExe manage.py migrate
+
+        # Start server
+        Write-Host "[run] Starting dev server at http://127.0.0.1:8001/" -ForegroundColor Green
+        & $PythonExe manage.py runserver 127.0.0.1:8001
+    } finally {
+        Pop-Location
+    }
+} catch {
+    Pause-OnError "[error] $($_.Exception.Message)`nSee the logs above for details. Press Enter to exit..."
 }
