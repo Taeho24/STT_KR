@@ -2,9 +2,15 @@ import os
 import torch
 import json
 
-# 상대 경로 모듈 가져오기
-from audio_analyzer import AudioAnalyzer
-from emotion_classifier import EmotionClassifier  # 감정 분류기 임포트
+# 코어 모듈 임포트: 레포 루트 우선, 실패 시 웹 번들(utils) 폴백
+try:
+    from audio_analyzer import AudioAnalyzer  # repo root 우선
+except Exception:
+    from .audio_analyzer import AudioAnalyzer  # fallback: website bundled
+try:
+    from emotion_classifier import EmotionClassifier  # repo root 우선
+except Exception:
+    from .emotion_classifier import EmotionClassifier  # fallback: website bundled
 from .srt_subtitle_generator import SRTSubtitleGenerator
 from .ass_subtitle_generator import ASSSubtitleGenerator
 from .utils import split_segment_by_max_words
