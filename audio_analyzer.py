@@ -174,6 +174,112 @@ class AudioAnalyzer:
 
         return segments
 
+    def compute_voice_spans(self, segments):
+        """세그먼트 내부 하이브리드 음성 타입 스팬 산출
+
+        하이브리드 규칙(사전 합의):
+        - 기본은 세그먼트 레벨 voice_type(whisper/normal/shout)을 유지
+        - 단어별 RMS(상대)와 전역 볼륨 레벨(soft/loud)을 이용해 강한 지역 패턴이
+          일정 길이 이상 지속되면 그 구간만 부분 재태깅
+        - 히스테리시스: std 기반 상대 임계로 토글 방지, 최소 단어수/지속시간 적용
+        - 기본값 우선: 세그먼트가 whisper면 약한 shout 후보는 무시(반대도 동일)
+        결과는 segment['voice_spans']에 기록: [{'label', 'start_word', 'end_word'}]
+        """
+        MIN_SPAN_WORDS = 2
+        MIN_DUR = {"whisper": 0.50, "shout": 0.40}
+        REL_STD = 0.75
+
+        for seg in segments:
+            words = seg.get('words') or []
+            if not words:
+                # 단어가 없으면 세그먼트 전역 라벨만 유지
+                seg['voice_spans'] = [{'label': seg.get('voice_type', 'normal'), 'start_word': 0, 'end_word': -1}]
+                continue
+
+            # 단어 RMS 수집 (미존재 시 0)
+            rms_vals = []
+            for w in words:
+                r = float(w.get('rms', 0.0))
+                rms_vals.append(r)
+            arr = np.asarray(rms_vals, dtype=np.float32)
+            seg_mean = float(arr.mean()) if arr.size > 0 else 0.0
+            seg_std = float(arr.std()) if arr.size > 0 else 0.0
+            if seg_std < 1e-6:
+                seg_std = 1.0  # 상대 임계가 무의미해지는 것을 방지
+
+            # 단어별 후보 라벨 산출
+            cand = [None] * len(words)
+            for i, w in enumerate(words):
+                r = float(w.get('rms', 0.0))
+                vol_lvl = w.get('volume_level', 'normal')
+                is_shout = (r >= seg_mean + REL_STD * seg_std) or (vol_lvl == 'loud')
+                is_whisp = (r <= seg_mean - REL_STD * seg_std) or (vol_lvl == 'soft')
+                if is_shout and not is_whisp:
+                    cand[i] = 'shout'
+                elif is_whisp and not is_shout:
+                    cand[i] = 'whisper'
+                else:
+                    cand[i] = None
+
+            # 연속 그룹화 및 최소 길이/지속시간 필터
+            accepted_overrides = []  # (label, start_idx, end_idx)
+            i = 0
+            while i < len(words):
+                if cand[i] is None:
+                    i += 1
+                    continue
+                j = i
+                lab = cand[i]
+                while j + 1 < len(words) and cand[j + 1] == lab:
+                    j += 1
+                # i..j 그룹 지속시간 계산
+                start_t = float(words[i].get('start', seg.get('start', 0.0)))
+                end_t = float(words[j].get('end', seg.get('end', start_t)))
+                dur = max(0.0, end_t - start_t)
+                enough_words = (j - i + 1) >= MIN_SPAN_WORDS
+                enough_dur = dur >= MIN_DUR.get(lab, 0.45)
+
+                # 세그먼트 전역 라벨 대비 약한 반대 후보 억제
+                seg_label = seg.get('voice_type', 'normal')
+                if seg_label == 'whisper' and lab == 'shout':
+                    # 더 엄격: 단어수가 3 이상 + 0.5s 이상
+                    enough_words = (j - i + 1) >= max(3, MIN_SPAN_WORDS)
+                    enough_dur = dur >= max(0.50, MIN_DUR['shout'])
+                elif seg_label == 'shout' and lab == 'whisper':
+                    enough_words = (j - i + 1) >= max(3, MIN_SPAN_WORDS)
+                    enough_dur = dur >= max(0.55, MIN_DUR['whisper'])
+
+                if enough_words and enough_dur:
+                    accepted_overrides.append((lab, i, j))
+                i = j + 1
+
+            # 단어별 최종 라벨 적용(기본: 세그먼트 라벨)
+            base = seg.get('voice_type', 'normal')
+            final_labels = [base] * len(words)
+            for lab, si, sj in accepted_overrides:
+                for k in range(si, sj + 1):
+                    final_labels[k] = lab
+
+            # 동일 라벨 연속 구간을 voice_spans로 압축
+            spans = []
+            cur_lab = final_labels[0]
+            span_start = 0
+            for idx in range(1, len(words)):
+                if final_labels[idx] != cur_lab:
+                    spans.append({
+                        'label': cur_lab,
+                        'start_word': span_start,
+                        'end_word': idx - 1
+                    })
+                    cur_lab = final_labels[idx]
+                    span_start = idx
+            # 꼬리 처리
+            spans.append({'label': cur_lab, 'start_word': span_start, 'end_word': len(words) - 1})
+
+            seg['voice_spans'] = spans
+
+        return segments
+
     def classify_voice_types(self, segments, audio):
         """발화자 정규화 + 오디오 신호 기반 Whisper/Shout 분류(일반화 알고리즘)
 
@@ -707,8 +813,64 @@ class AudioAnalyzer:
             # 최종 기록
             preliminary_types[i] = (vtype, conf)
 
-        # 결과 반영
-        for idx, (vtype, conf) in preliminary_types.items():
+        # === 보수적 세그먼트 레벨 게이팅 + 카운트 보정 ===
+        # 1) 초기 카운트 기록
+        orig_whisper = sum(1 for v, _ in preliminary_types.values() if v == 'whisper')
+        orig_shout = sum(1 for v, _ in preliminary_types.values() if v == 'shout')
+
+        # 2) 게이팅 기준 (보수적)
+        strict_margin = {'whisper': 0.18, 'shout': 0.16}
+        # 에너지 지속 기준(기본값; 길이에 따라 상단에서 이미 조정됨)
+        min_frac = {'whisper': 0.50, 'shout': 0.40}
+
+        # 후보 저장
+        demoted_whisper = []  # (idx, whisper_prob, margin)
+        demoted_shout = []    # (idx, shout_prob, margin)
+
+        final_types = dict(preliminary_types)
+        for idx, (vtype, conf) in list(final_types.items()):
+            feat = index_to_feat.get(idx, {})
+            wprob = float(feat.get('whisper_prob', 0.0))
+            sprob = float(feat.get('shout_prob', 0.0))
+            if vtype == 'whisper':
+                margin = wprob - sprob
+                low_frac = float(feat.get('low_energy_frac', 0.0))
+                if not (wprob >= whisper_threshold and margin >= strict_margin['whisper'] and low_frac >= min_frac['whisper']):
+                    final_types[idx] = ('normal', max(0.0, conf - 0.1))
+                    demoted_whisper.append((idx, wprob, margin))
+            elif vtype == 'shout':
+                margin = sprob - wprob
+                high_frac = float(feat.get('high_energy_frac', 0.0))
+                if not (sprob >= max(shout_threshold, 0.66) and margin >= strict_margin['shout'] and high_frac >= min_frac['shout']):
+                    final_types[idx] = ('normal', max(0.0, conf - 0.1))
+                    demoted_shout.append((idx, sprob, margin))
+
+        # 3) 카운트 보정: 지나치게 줄어들면 상위 후보 일부 복구 (목표: 원래의 85%)
+        def restore_top(demoted_list, target_count, cls):
+            if target_count <= 0 or not demoted_list:
+                return
+            # 점수가 높은 순으로 복원 (확률 우선, 동률 시 margin)
+            key_idx = 1 if cls == 'whisper' else 1
+            demoted_sorted = sorted(demoted_list, key=lambda x: (x[1], x[2]), reverse=True)
+            restored = 0
+            for idx, prob, margin in demoted_sorted:
+                if restored >= target_count:
+                    break
+                # 완화 기준으로 재허용
+                final_types[idx] = (cls, prob)
+                restored += 1
+
+        new_whisper = sum(1 for v, _ in final_types.values() if v == 'whisper')
+        new_shout = sum(1 for v, _ in final_types.values() if v == 'shout')
+        target_whisper = max(0, int(orig_whisper * 0.85))
+        target_shout = max(0, int(orig_shout * 0.85))
+        if new_whisper < target_whisper:
+            restore_top(demoted_whisper, target_whisper - new_whisper, 'whisper')
+        if new_shout < target_shout:
+            restore_top(demoted_shout, target_shout - new_shout, 'shout')
+
+        # 결과 반영 (최종)
+        for idx, (vtype, conf) in final_types.items():
             segments[idx]['voice_type'] = vtype
             segments[idx]['voice_type_confidence'] = round(float(conf), 3)
 

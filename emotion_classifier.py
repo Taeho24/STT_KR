@@ -805,7 +805,7 @@ class EmotionClassifier:
     @staticmethod
     def get_emotion_color(emotion: str) -> str:
         """감정별 색상 코드 반환"""
-        # 디버그용 로깅으로 변경 (기본 INFO/STDOUT 출력 억제)
+    # 디버그 로깅 설정
         emotion_colors = config.get('colors', 'emotion_colors')
         default_color = config.get('colors', 'default_color', '&HFFFFFF')
         resolved_color = emotion_colors.get(emotion, default_color)

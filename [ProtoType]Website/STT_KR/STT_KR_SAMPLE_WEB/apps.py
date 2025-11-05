@@ -18,7 +18,7 @@ class SttKrSampleWebConfig(AppConfig):
     # def ready(self):
     #     # 'runserver', 'gunicorn', 'uwsgi' 명령어일 때만 모델 로드
     #     if 'runserver' in sys.argv or 'gunicorn' in sys.argv or 'uwsgi' in sys.argv:
-    #         # os.environ.get('RUN_MAIN')을 사용하여 실제 서버 프로세스에서만 모델을 로드하도록 변경
+    #         # os.environ.get('RUN_MAIN')을 사용하여 실제 서버 프로세스에서만 모델을 로드하도록 처리
     #         if os.environ.get('RUN_MAIN') != 'true':
     #             return
     #         

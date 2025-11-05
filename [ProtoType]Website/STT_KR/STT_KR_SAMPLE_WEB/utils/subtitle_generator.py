@@ -198,7 +198,6 @@ class SubtitleGenerator:
                     word["speaker"] = segment["speaker"]
 
         segments = split_segment_by_max_words(result["segments"], self.max_words)
-        # 최소 지속 시간을 0.7초에서 0.2초로 변경
         # 너무 짧은 노이즈만 제거 (200ms 미만)
         segments = [s for s in segments if (s["end"] - s["start"]) > 0.2]
         print(f"분할된 세그먼트 수: {len(segments)}")
@@ -219,7 +218,7 @@ class SubtitleGenerator:
         except Exception as _e:
             print(f"[DEBUG] AudioAnalyzer module path 확인 실패: {_e}")
         analyzer = AudioAnalyzer(sample_rate=16000)
-        # 최신 분석 파이프라인: 단어별 특성 + 세그먼트 음성 타입 분류
+        # 최신 분석 파이프라인: 단어별 특성 + 세그먼트 음성 타입 분류 (세그먼트 레벨만)
         segments = analyzer.analyze_audio_features(segments, audio)
         segments = analyzer.classify_voice_types(segments, audio)
 

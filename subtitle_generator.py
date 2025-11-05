@@ -121,25 +121,22 @@ class ASSSubtitleGenerator:
                 "{\\c" + self.default_color + "}"  # 기본 텍스트는 항상 흰색
             )
 
-        # voice_type 기반 스타일 처리 (whisper: 이탤릭 + 반투명, shout: 두꺼운 폰트)
+        # 세그먼트 전역 voice_type 스타일링만 사용 (하이브리드 스팬 비활성화)
         voice_type = segment.get('voice_type', 'normal')
-        
-        # voice_type별 지속적인 스타일 태그 생성
         voice_style_on = ""
         voice_style_off = ""
-        
         if voice_type == 'whisper':
             whisper_font = self.voice_fonts.get('whisper', self.default_font)
             voice_style_on = f"{{\\fn{whisper_font}\\i1\\1a&H60&}}"     # 폰트 + 이탤릭 + 반투명 적용
             voice_style_off = f"{{\\fn{self.default_font}\\i0\\1a&H00&}}" # 기본 폰트로 복원 + 이탤릭/반투명 해제
         elif voice_type == 'shout':
             shout_font = self.voice_fonts.get('shout', self.default_font)
-            voice_style_on = f"{{\\fn{shout_font}}}"                     # 두꺼운 폰트 적용
-            voice_style_off = f"{{\\fn{self.default_font}}}"             # 기본 폰트로 복원
+            voice_style_on = f"{{\\fn{shout_font}}}"
+            voice_style_off = f"{{\\fn{self.default_font}}}"
 
-        # voice_type 스타일 적용 (전체 세그먼트에)
+        # 세그먼트 전역 스타일 적용
         text += voice_style_on
-        
+
         # 단어별 처리
         words = segment.get('words', [])
         if words:
@@ -189,7 +186,7 @@ class ASSSubtitleGenerator:
         else:
             text += segment.get('text', '')
 
-        # voice_type 스타일 해제
+        # 세그먼트 전역 voice_type 스타일 해제
         text += voice_style_off
 
         # 최종 자막 라인 생성
