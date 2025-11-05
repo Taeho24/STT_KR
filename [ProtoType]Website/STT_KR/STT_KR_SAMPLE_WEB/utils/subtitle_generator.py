@@ -5,11 +5,13 @@ import json
 # 코어 모듈 임포트: 레포 루트 우선, 실패 시 웹 번들(utils) 폴백
 try:
     from audio_analyzer import AudioAnalyzer  # repo root 우선
-except Exception:
+except Exception as _e:
+    print(f"[WARN] Repo root AudioAnalyzer import 실패: {_e}. Bundled utils로 폴백합니다.")
     from .audio_analyzer import AudioAnalyzer  # fallback: website bundled
 try:
     from emotion_classifier import EmotionClassifier  # repo root 우선
-except Exception:
+except Exception as _e:
+    print(f"[WARN] Repo root EmotionClassifier import 실패: {_e}. Bundled utils로 폴백합니다.")
     from .emotion_classifier import EmotionClassifier  # fallback: website bundled
 from .srt_subtitle_generator import SRTSubtitleGenerator
 from .ass_subtitle_generator import ASSSubtitleGenerator
