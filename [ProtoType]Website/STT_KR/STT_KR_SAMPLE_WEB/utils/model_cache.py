@@ -19,7 +19,9 @@ class ModelCache:
         try:
             print("WhisperX 모델 로드...")
             # 모델 종류: large-v3, large-v2, medium
-            cls.whisper_model = whisperx.load_model("large-v2", device=device, compute_type=compute_type, )
+            cls.large_v3_model = whisperx.load_model("large-v3", device=device, compute_type=compute_type, )
+            cls.large_v2_model = whisperx.load_model("large-v2", device=device, compute_type=compute_type, )
+            cls.medium_model = whisperx.load_model("medium", device=device, compute_type=compute_type, )
 
             print("en 모델 로드...")
             cls.model_en, cls.metadata_en = whisperx.load_align_model(language_code="en", device=device)

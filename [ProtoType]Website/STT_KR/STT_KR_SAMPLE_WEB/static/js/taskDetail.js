@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 화자 이름 변경 적용 (POST 요청)
     const applySpeakerMapping = async () => {
         const newNamesMap = {};
+        const updateNamesMap = {};
         const speakerInputs = document.querySelectorAll(".speaker-input");
         
         // 사용자 입력 값 수집
@@ -68,7 +69,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const newName = input.value.trim();
             if (newName) {
                 newNamesMap[originalSpeaker] = newName;
+                updateNamesMap[newName] = '';
             }
+            else updateNamesMap[originalSpeaker] = '';
         });
 
         if (Object.keys(newNamesMap).length === 0) {
@@ -92,16 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (response.ok) {
-                const updateNamesMap = {}
-                for (const newName of Object.values(newNamesMap)) {
-                    // newName을 Key로, 빈 문자열을 Value로 설정
-                    updateNamesMap[newName] = ""; 
-                }
-
                 speakerMappingContainer.innerHTML = "";
 
                 // 딕셔너리의 {originalName: newName} 쌍을 순회하며 입력 필드 생성
-                Object.entries(updateNamesMap).forEach(([originalSpeaker, newName], index) => {
+                Object.entries(updateNamesMap).forEach(([originalName, newName], index) => {
                     const mappingItem = document.createElement("div");
                     mappingItem.className = "speaker-mapping-item";
 
@@ -109,16 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // HTML 생성 (newName을 value에 넣어 기본값으로 표시)
                     mappingItem.innerHTML = `
-                        <label class="speaker-label" for="speaker-${originalSpeaker}">
-                            <span class="speaker-original">${originalSpeaker}</span>
+                        <label class="speaker-label" for="speaker-${originalName}">
+                            <span class="speaker-original">${originalName}</span>
                             <span class="speaker-arrow">→</span>
                         </label>
                         <input 
                             type="text" 
-                            id="speaker-${originalSpeaker}" 
+                            id="speaker-${originalName}" 
                             class="speaker-input" 
                             placeholder="화자 ${speakerNumber} 이름 입력"
-                            data-speaker="${originalSpeaker}"
+                            data-speaker="${originalName}"
                             value="${newName || ''}"
                         >
                     `;

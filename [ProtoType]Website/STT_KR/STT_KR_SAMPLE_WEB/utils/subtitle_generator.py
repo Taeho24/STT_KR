@@ -19,7 +19,8 @@ class SubtitleGenerator:
             device="cuda" if torch.cuda.is_available() else "cpu",
             compute_type="float16" if torch.cuda.is_available() else "float32",
             batch_size=4,
-            task_id=""):
+            task_id="", 
+            model="large-v2"):
         # DB manager 객체 생성
         self.db_manager = DBManager(task_id=task_id)
 
@@ -37,6 +38,8 @@ class SubtitleGenerator:
         else:
             self.batch_size = batch_size
 
+        self.model = model
+
         self.model_cache = ModelCache()
 
         # 파일 존재 여부 확인 추가
@@ -47,7 +50,12 @@ class SubtitleGenerator:
 
     def process_video(self, file_format:str = "srt"):
         # WhisperX 모델 불러오기
-        model = self.model_cache.whisper_model
+        if self.model == "large-v3":
+            model = self.model_cache.large_v3_model
+        elif self.model == "medium":
+            model = self.model_cache.medium_model
+        else:
+            model = self.model_cache.large_v2_model
 
         print(f"오디오 추출 중: {self.audio_path}")
         audio = whisperx.load_audio(self.audio_path)

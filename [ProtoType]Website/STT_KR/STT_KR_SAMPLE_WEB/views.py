@@ -158,6 +158,7 @@ def generate_caption(request):
     try:
         audio_file = request.FILES["audio"]
         file_name = request.POST.get("file_name", "unknown_file")
+        model = request.POST.get("model", "large-v2")
 
         # 파일명 충돌을 피하기 위해 고유한 파일명 사용
         id = uuid.uuid4()
@@ -200,7 +201,7 @@ def generate_caption(request):
         # 비동기 방식
         #=================================================================================================================================
         # 오디오 처리
-        task = process_and_generate_srt_task.delay(audio_path=wsl_path, proper_nouns=proper_nouns)
+        task = process_and_generate_srt_task.delay(audio_path=wsl_path, proper_nouns=proper_nouns, model=model)
 
         # 작업 ID와 사용자 정보를 DB에 저장하는 로직 추가
         user = get_or_create_anonymous_user(request)

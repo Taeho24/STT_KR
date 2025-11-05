@@ -1245,3 +1245,87 @@ footer {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
+
+/* 모델 선택 그룹 컨테이너 */
+.model-selection-group {
+    margin-top: 25px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    background-color: #fcfcfc;
+}
+
+.model-selection-group .section-label {
+    display: block;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* 라디오 버튼 옵션들을 담는 컨테이너 */
+.model-options {
+    display: flex; /* 가로로 정렬 */
+    gap: 15px; /* 버튼들 사이의 간격 */
+    justify-content: center; /* 가운데 정렬 */
+    flex-wrap: wrap; /* 화면이 작아지면 줄바꿈 */
+}
+
+/* 실제 라디오 버튼 숨기기 */
+.model-radio-input {
+    display: none;
+}
+
+/* 가상의 라디오 버튼 (Label) 스타일 */
+.model-radio-label {
+    display: flex;
+    flex-direction: column; /* 텍스트를 세로로 정렬 */
+    align-items: center;
+    justify-content: center;
+    padding: 15px 25px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    min-width: 160px; /* 최소 너비 지정 */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.model-radio-label:hover {
+    border-color: #999;
+    background-color: #f5f5f5;
+    transform: translateY(-2px); /* 호버 시 살짝 떠오르는 효과 */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* 선택되었을 때의 라벨 스타일 */
+.model-radio-input:checked + .model-radio-label {
+    border-color: #007bff; /* 선택 시 파란색 테두리 */
+    background-color: #e7f3ff; /* 선택 시 연한 파란색 배경 */
+    color: #007bff;
+    font-weight: 600;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.model-radio-label .model-name {
+    font-size: 1.1em;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #333; /* 기본 텍스트 색상 */
+}
+
+.model-radio-input:checked + .model-radio-label .model-name {
+    color: #0056b3; /* 선택 시 이름 색상 */
+}
+
+.model-radio-label .model-description {
+    font-size: 0.85em;
+    color: #666; /* 기본 설명 텍스트 색상 */
+    text-align: center;
+}
+
+.model-radio-input:checked + .model-radio-label .model-description {
+    color: #007bff; /* 선택 시 설명 색상 */
+}
