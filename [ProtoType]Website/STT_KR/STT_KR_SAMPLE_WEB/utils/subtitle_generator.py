@@ -18,7 +18,7 @@ class SubtitleGenerator:
             max_words=10, 
             device="cuda" if torch.cuda.is_available() else "cpu",
             compute_type="float16" if torch.cuda.is_available() else "float32",
-            batch_size=4,
+            batch_size=16,
             task_id="", 
             model="large-v2"):
         # DB manager 객체 생성

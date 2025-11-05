@@ -147,15 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const contentType = response.headers.get('Content-Type');
 
                 if (contentType && contentType.includes('text/plain')) {
-                    // SUCCESS: subtitle을 받은 경우
-                    const subtitle = await response.text();
-                    captionTextarea.value = subtitle;
-                    taskStatusElement.textContent = '완료';
-                    if(loadingElement) {
-                        loadingElement.style.display = 'none';
+                    if (!captionTextarea) {
+                        // SUCCESS: subtitle을 받은 경우
+                        window.location.reload();
                     }
-                    // (폴링 종료)
-
                 } else if (contentType && contentType.includes('application/json')) {
                     // PROCESSING: JSON 상태를 받은 경우
                     const data = await response.json();
