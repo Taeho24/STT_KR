@@ -83,12 +83,32 @@ try {
         & $PythonExe -c "import platform; print('[env] Platform:', platform.platform())"
         Write-Host "[migrate] Applying migrations" -ForegroundColor Cyan
         & $PythonExe manage.py migrate
-
-        # Start server
-        Write-Host "[run] Starting dev server at http://127.0.0.1:8001/" -ForegroundColor Green
-        & $PythonExe manage.py runserver 127.0.0.1:8001
     } finally {
         Pop-Location
+    }
+    
+    # Launch Django dev server in a separate process/window so we can open the browser automatically
+    $ServerUrl = "http://127.0.0.1:8001/"
+    Write-Host "[run] Starting dev server at $ServerUrl" -ForegroundColor Green
+    Start-Process -FilePath $PythonExe -ArgumentList @("manage.py", "runserver", "127.0.0.1:8001") -WorkingDirectory $ManageDir -WindowStyle Normal | Out-Null
+
+    # Wait for server readiness (up to ~10s), then open default browser
+    $maxTries = 40
+    $ready = $false
+    for ($i = 0; $i -lt $maxTries; $i++) {
+        try {
+            $ok = Test-NetConnection -ComputerName 127.0.0.1 -Port 8001 -InformationLevel Quiet
+            if ($ok) { $ready = $true; break }
+        } catch {}
+        Start-Sleep -Milliseconds 250
+    }
+
+    if ($ready) {
+        Write-Host "[open] Opening browser → $ServerUrl" -ForegroundColor Green
+        try { Start-Process $ServerUrl | Out-Null } catch { Write-Warning "Could not auto-open browser. Please navigate to $ServerUrl" }
+    } else {
+        Write-Warning "Server may still be starting. If the page doesn't load yet, wait a moment and refresh: $ServerUrl"
+        try { Start-Process $ServerUrl | Out-Null } catch {}
     }
 } catch {
     Pause-OnError "[error] $($_.Exception.Message)`nSee the logs above for details. Press Enter to exit..."
