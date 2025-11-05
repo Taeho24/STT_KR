@@ -5,7 +5,7 @@ from .utils.subtitle_generator import SubtitleGenerator
 from .utils.db_manager import DBManager
 
 @app.task(bind=True)
-def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_format: str = "srt"):
+def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_format: str = "srt", model: str = "large-v2"):
     """
     음성 인식부터 SRT 자막 생성까지의 전체 작업을 수행하는 Celery 태스크
 
@@ -15,7 +15,7 @@ def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_for
     try:
         task_id = self.request.id
 
-        sg = SubtitleGenerator(audio_path=audio_path, task_id=task_id)
+        sg = SubtitleGenerator(audio_path=audio_path, task_id=task_id, model=model)
         
         sg.process_video(file_format=file_format)
 

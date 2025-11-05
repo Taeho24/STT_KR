@@ -45,6 +45,7 @@ const generateBtn = document.getElementById('generate-btn');
 const cancelBtn = document.getElementById('cancel-btn');
 const previewCtrls = document.getElementById('preview-controls');
 const loading = document.getElementById('loading');
+const modelSelect = document.getElementById('model-select');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -246,6 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const [emotion, color] of Object.entries(emotionColors)) {
       formData.append(`${emotion}`, color);
     }
+
+    // 모델명 추가
+    const selectedModelInput = document.querySelector('input[name="model"]:checked');
+    const selectedModelName = selectedModelInput ? selectedModelInput.value : null;
+
+    formData.append('model', selectedModelName);
 
     try {
       const res = await fetch('/STT/generate-caption/', {

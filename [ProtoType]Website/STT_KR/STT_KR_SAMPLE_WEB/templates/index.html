@@ -146,6 +146,29 @@
                 <button id="add-word-btn" class="add-btn">+ 추가</button>
                 </div>
 
+                <div class="model-selection-group">
+                    <label class="section-label">모델 선택:</label>
+                    <div class="model-options">
+                        <input type="radio" id="model-large-v3" name="model" value="large-v3" class="model-radio-input">
+                        <label for="model-large-v3" class="model-radio-label">
+                            <span class="model-name">Large v3</span>
+                            <span class="model-description">최고 정확도 (고용량)</span>
+                        </label>
+
+                        <input type="radio" id="model-large-v2" name="model" value="large-v2" class="model-radio-input" checked>
+                        <label for="model-large-v2" class="model-radio-label">
+                            <span class="model-name">Large v2</span>
+                            <span class="model-description">고 정확도 (표준)</span>
+                        </label>
+
+                        <input type="radio" id="model-medium" name="model" value="medium" class="model-radio-input">
+                        <label for="model-medium" class="model-radio-label">
+                            <span class="model-name">Medium</span>
+                            <span class="model-description">빠른 속도 (중용량)</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="loading" id="loading" style="display: none;">
                     <div class="spinner"></div>
                     <p id="loading-status-text">오디오를 추출 중입니다. 잠시만 기다려주세요...</p>
