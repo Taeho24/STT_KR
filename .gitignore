@@ -29,3 +29,28 @@ assets/**
 result/**
 private/**
 .cache/**
+test_models/**
+
+# Secrets
+kaggle.json
+
+# Release pruning (exclude non-essential dev/test content)
+docs/**
+labels/**
+*.jsonl
+tools/**
+audio_analyzer_old.py
+tmp_analyze.py
+requirements-core.txt
+requirements-web.txt
+requirements.txt
+audio_analyzer.py
+audio_analyzer_improved.py
+emotion_classifier.py
+emotion_classifier_improved.py
+performance_evaluator.py
+main.py
+main_improved.py
+subtitle_generator.py
+utils.py
+[ProtoType]Website/README.md

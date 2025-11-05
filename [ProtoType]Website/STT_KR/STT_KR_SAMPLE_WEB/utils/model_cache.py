@@ -43,9 +43,21 @@ class ModelCache:
 
             print("화자 분리 모델 로드...")
             try:
-                cls.diarize_model = whisperx.DiarizationPipeline(model_name="pyannote/speaker-diarization-3.0", use_auth_token=auth_token, device=device)
+                # whisperx 버전에 따라 DiarizationPipeline 유무가 다를 수 있음
+                if hasattr(whisperx, 'DiarizationPipeline'):
+                    cls.diarize_model = whisperx.DiarizationPipeline(
+                        model_name="pyannote/speaker-diarization-3.0",
+                        use_auth_token=auth_token,
+                        device=device
+                    )
+                    print("화자 분리 모델 로드 완료")
+                else:
+                    cls.diarize_model = None
+                    print("정보: 현재 whisperx 버전이 DiarizationPipeline을 제공하지 않습니다. 화자 분리를 생략합니다.")
             except Exception as e:
-                print(f"화자 분리 모델 로드 실패: {e}")
+                cls.diarize_model = None
+                # 토큰 부재 또는 환경 이슈는 정보 로그로 다운그레이드
+                print(f"정보: 화자 분리 모델을 활성화하지 못했습니다. 사유: {e}. 화자 분리를 생략합니다.")
             
             print("모든 모델 로드 완료")
         except Exception as e:

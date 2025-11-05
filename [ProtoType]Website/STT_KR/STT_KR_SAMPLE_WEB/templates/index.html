@@ -143,6 +143,15 @@
                 </div>
 
                 <div class="preview-controls">
+                    <div class="format-controls" style="display:flex;align-items:center;gap:8px;">
+                        <label for="format-select-top">형식:</label>
+                        <select class="format-select" id="format-select-top">
+                            <option value="srt">SRT</option>
+                            <option value="vtt">VTT</option>
+                            <option value="txt">TXT</option>
+                            <option value="ass">ASS</option>
+                        </select>
+                    </div>
                     <button class="preview-btn" id="preview-btn">미리보기</button>
                     <button class="generate-btn" id="generate-btn">자막 생성하기</button>
                     <button class="cancel-btn" id="cancel-btn">취소</button>
@@ -162,10 +171,17 @@
                 
                 <!-- 자막 내용 -->
                 <div class="caption-content" id="caption-content">
+                    <div id="analysis-summary" style="display:none; margin-bottom:12px; padding:10px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">
+                        <strong>분석 요약</strong>
+                        <div id="analysis-summary-body" style="margin-top:6px; font-size:14px; line-height:1.5;"></div>
+                    </div>
                     <textarea class="caption-textarea" id="caption-textarea" placeholder="자막이 여기에 표시됩니다..."></textarea>
                     <div class="caption-controls">
                         <button class="download-btn" id="download-btn">자막 다운로드</button>
-                        <div>
+                        <div id="generated-format-chip" style="display:none; margin-left:8px; padding:4px 8px; border-radius:12px; background:#eef2ff; color:#1f2937; font-size:12px;">
+                            형식: <span id="generated-format-text">SRT</span> (생성됨)
+                        </div>
+                        <div id="download-format-wrapper" title="생성된 형식으로 고정됩니다">
                             <label for="format-select">형식:</label>
                             <select class="format-select" id="format-select">
                                 <option value="srt">SRT</option>

@@ -25,7 +25,20 @@ class SubtitleGenerator:
             fast_mode: bool = False):
         # 경로 설정
         self.audio_path = audio_path
+        # HF 토큰 경로: 웹 정적 경로 우선, 없으면 레포 루트의 private/hf_token.txt로 폴백 + 환경변수 지원
         self.hf_token_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'static', 'private', 'hf_token.txt')
+        try:
+            hf_env = os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
+            if hf_env:
+                print("[DEBUG] HF 토큰: 환경변수(HUGGINGFACE_HUB_TOKEN/HF_TOKEN)에서 감지")
+            if not os.path.exists(self.hf_token_path):
+                repo_root = os.path.abspath(os.path.join(settings.BASE_DIR, os.pardir, os.pardir))
+                fallback_token = os.path.join(repo_root, 'private', 'hf_token.txt')
+                if os.path.exists(fallback_token):
+                    self.hf_token_path = fallback_token
+                    print(f"HF 토큰 경로 폴백 사용: {self.hf_token_path}")
+        except Exception:
+            pass
         self.output_path = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'tmp', 'result')
         
         self.id = os.path.splitext(os.path.basename(audio_path))[0]
@@ -50,13 +63,16 @@ class SubtitleGenerator:
         # 로드 정보는 private/hf_token.txt와 GEMINI_API_KEY 환경변수를 사용합니다.
         try:
             if getattr(self.model_cache, 'whisper_model', None) is None:
-                hf_token = None
-                try:
-                    if os.path.exists(self.hf_token_path):
-                        with open(self.hf_token_path, 'r', encoding='utf-8') as f:
-                            hf_token = f.read().strip()
-                except Exception:
-                    hf_token = None
+                # 1) 환경변수 → 2) 파일 경로 순으로 토큰 조회
+                hf_token = os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
+                if not hf_token:
+                    try:
+                        if os.path.exists(self.hf_token_path):
+                            with open(self.hf_token_path, 'r', encoding='utf-8') as f:
+                                hf_token = f.read().strip()
+                    except Exception:
+                        hf_token = None
+                print(f"[DEBUG] HF 토큰 소스: {'ENV' if os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN') else ('FILE' if os.path.exists(self.hf_token_path) else 'NONE')}")
 
                 gemini_api_key = os.environ.get('GEMINI_API_KEY') or None
 
@@ -88,8 +104,8 @@ class SubtitleGenerator:
         # 모델이 로드되지 않은 경우 요청 시 로드 시도
         if model is None:
             try:
-                hf_token = None
-                if os.path.exists(self.hf_token_path):
+                hf_token = os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
+                if not hf_token and os.path.exists(self.hf_token_path):
                     with open(self.hf_token_path, 'r', encoding='utf-8') as f:
                         hf_token = f.read().strip()
                 gemini_api_key = os.environ.get('GEMINI_API_KEY') or None
@@ -117,23 +133,51 @@ class SubtitleGenerator:
         language_code = result["language"]
 
         print("음성 정렬 수행 중...")
+        # 로컬 파이프라인과의 출력 동등성을 위해 문자 단위 정렬 사용
         if language_code == "en":
-            result = whisperx.align(result["segments"], self.model_cache.model_en, self.model_cache.metadata_en, audio, self.device, return_char_alignments=False)
+            result = whisperx.align(
+                result["segments"], self.model_cache.model_en, self.model_cache.metadata_en,
+                audio, self.device, return_char_alignments=True
+            )
         elif language_code == "ko":
-            result = whisperx.align(result["segments"], self.model_cache.model_ko, self.model_cache.metadata_ko, audio, self.device, return_char_alignments=False)
+            result = whisperx.align(
+                result["segments"], self.model_cache.model_ko, self.model_cache.metadata_ko,
+                audio, self.device, return_char_alignments=True
+            )
         else:
             model_tmp, metadata_tmp = whisperx.load_align_model(language_code=language_code, device=self.device)
-            result = whisperx.align(result["segments"], model_tmp, metadata_tmp, audio, self.device, return_char_alignments=False)
+            result = whisperx.align(
+                result["segments"], model_tmp, metadata_tmp,
+                audio, self.device, return_char_alignments=True
+            )
         
         if self.enable_diarization:
-            print("화자 분리 수행 중...")
-            try:
-                diarize_model = self.model_cache.diarize_model
-                diarize_segments = diarize_model(audio)
-                result = whisperx.assign_word_speakers(diarize_segments, result)
-            except Exception as e:
-                print(f"화자 분리 중 오류 발생: {str(e)}")
-                print("화자 분리 없이 계속 진행합니다.")
+            diarize_model = getattr(self.model_cache, 'diarize_model', None)
+            if diarize_model is None:
+                print("정보: 화자 분리가 비활성화되어 생략합니다.")
+            else:
+                print("화자 분리 수행 중...")
+                try:
+                    diarize_segments = diarize_model(audio)
+                    result = whisperx.assign_word_speakers(diarize_segments, result)
+
+                    # 화자 ID를 로컬 파이프라인과 동일하게 1부터 시작하도록 정규화
+                    speakers_seen = {}
+                    next_id = 1
+                    for seg in result["segments"]:
+                        orig = seg.get('speaker')
+                        if not orig:
+                            continue
+                        if orig not in speakers_seen:
+                            speakers_seen[orig] = f"SPEAKER_{next_id}"
+                            next_id += 1
+                        seg['speaker'] = speakers_seen[orig]
+                        for w in seg.get('words', []):
+                            if w.get('speaker') == orig:
+                                w['speaker'] = speakers_seen[orig]
+                except Exception as e:
+                    print(f"화자 분리 중 오류 발생: {str(e)}")
+                    print("화자 분리 없이 계속 진행합니다.")
         else:
             print("설정에 의해 화자 분리를 생략합니다.")
             
@@ -160,6 +204,12 @@ class SubtitleGenerator:
             core_config.set(self.enable_temporal_smoothing, 'emotions', 'temporal_smoothing', 'enabled')
         except Exception:
             pass
+        # 디버그: 실제 임포트된 AudioAnalyzer 모듈 경로 로깅
+        try:
+            import audio_analyzer as _aa_mod
+            print(f"[DEBUG] AudioAnalyzer module path: {_aa_mod.__file__}")
+        except Exception as _e:
+            print(f"[DEBUG] AudioAnalyzer module path 확인 실패: {_e}")
         analyzer = AudioAnalyzer(sample_rate=16000)
         # 최신 분석 파이프라인: 단어별 특성 + 세그먼트 음성 타입 분류
         segments = analyzer.analyze_audio_features(segments, audio)
@@ -168,6 +218,12 @@ class SubtitleGenerator:
         if self.enable_ser:
             # 감정 분류: 모든 언어에서 수행 (텍스트 모델은 영어만 활성화)
             print("감정 분류 모델 로드 중...")
+            # 디버그: 실제 임포트된 EmotionClassifier 소스 경로 로그
+            try:
+                import emotion_classifier as _ec_mod  # repo root의 모듈을 사용해야 함
+                print(f"[DEBUG] EmotionClassifier module path: {_ec_mod.__file__}")
+            except Exception as _e:
+                print(f"[DEBUG] EmotionClassifier module path 확인 실패: {_e}")
             enable_text = (language_code == 'en')  # 영어 외에는 오디오 전용
             emotion_classifier = EmotionClassifier(
                 device=self.device,
@@ -175,6 +231,13 @@ class SubtitleGenerator:
                 cache_dir=os.path.join(self.output_path, ".cache"),
                 enable_text=enable_text
             )
+            try:
+                # 가능한 경우 로드된 오디오/텍스트 모델 이름을 로깅
+                audio_name = getattr(emotion_classifier, 'audio_model_name', None)
+                text_name = getattr(emotion_classifier, 'text_model_name', None)
+                print(f"[DEBUG] Emotion models -> audio: {audio_name}, text: {text_name}")
+            except Exception:
+                pass
             print("감정 분류 모델 로드 완료")
 
             # 감정 분석 배치 처리
@@ -337,27 +400,25 @@ class SubtitleGenerator:
             return f.read()
     
     def generate_ass_subtitle(self):
-        subtitle_settings = load_subtitle_settings(self.id)
-        if not subtitle_settings:
-            subtitle_settings = {
-                "font": {"default_size": 24, "min_size": 20, "max_size": 28},
-                "hex_colors": {
-                    "emotion_colors": {
-                        "neutral": "#FFFFFF",
-                        "happy": "#00FF00",
-                        "sad": "#0000FF",
-                        "angry": "#FF0000",
-                        "fear": "#800080",
-                        "surprise": "#00FFFF",
-                        "disgust": "#008080",
-                    },
-                    "default_color": "#FFFFFF",
-                    "highlight_color": "#FFFF00",
-                },
-            }
-
-        ass_gen = ASSSubtitleGenerator(subtitle_settings=subtitle_settings)
+        # 최신 로컬 고급 ASS 생성 파이프라인 강제 사용
+        # 주의: SRT는 웹 구현 유지, ASS만 고급 로컬 구현으로 위임
+        from importlib.machinery import SourceFileLoader
         segments = self._load_segments()
-        ass_gen.segments_to_ass(segments, self.ass_output_path)
-        with open(self.ass_output_path, 'r', encoding='utf-8-sig') as f:
+
+        # 절대 경로 로더로 고급 생성기 강제 로드 (경로 충돌 방지, 폴백 금지)
+        repo_root = os.path.abspath(os.path.join(settings.BASE_DIR, os.pardir, os.pardir))
+        adv_path = os.path.join(repo_root, 'subtitle_generator.py')
+        if not os.path.exists(adv_path):
+            raise FileNotFoundError(f"고급 생성기 파일을 찾을 수 없습니다: {adv_path}")
+        mod = SourceFileLoader('advanced_subtitle_generator', adv_path).load_module()
+        AdvancedASSSubtitleGenerator = getattr(mod, 'ASSSubtitleGenerator', None)
+        if AdvancedASSSubtitleGenerator is None:
+            raise ImportError('ASSSubtitleGenerator 심볼 누락')
+
+        # 고급 ASS 생성기 실행 (config 기반 스타일/색상/하이라이트 적용)
+        advanced_gen = AdvancedASSSubtitleGenerator()
+        # 로컬 기준 기본 해상도(예시: 640x360)로 헤더 통일
+        video_info = {"width": 640, "height": 360}
+        advanced_gen.generate_full_subtitle(segments, self.ass_output_path, video_info=video_info)
+        with open(self.ass_output_path, 'r', encoding='utf-8') as f:
             return f.read()

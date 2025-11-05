@@ -119,10 +119,17 @@ def generate_caption(request):
                 generator.modify_proper_nouns(proper_nouns)
             if file_format == 'ass':
                 ass_text = generator.generate_ass_subtitle()
-                return HttpResponse(ass_text, content_type="text/plain; charset=utf-8")
+                resp = HttpResponse(ass_text, content_type="text/plain; charset=utf-8")
+                # 프론트엔드에서 생성 결과 요약을 조회할 수 있도록 ID/형식 헤더 제공
+                resp["X-Subtitle-ID"] = generator.id
+                resp["X-Format"] = "ass"
+                return resp
             else:
                 srt_text = generator.generate_srt_subtitle()
-                return HttpResponse(srt_text, content_type="text/plain; charset=utf-8")
+                resp = HttpResponse(srt_text, content_type="text/plain; charset=utf-8")
+                resp["X-Subtitle-ID"] = generator.id
+                resp["X-Format"] = "srt"
+                return resp
     except Exception as e:
         print("자막 생성 중 오류:", e)
         traceback.print_exc()
@@ -147,3 +154,58 @@ def get_caption_status(request, task_id):
 
 def index(request):
     return render(request, 'index.html')
+
+def _load_segments_json(base_id: str):
+    try:
+        out_dir = os.path.join(settings.BASE_DIR, 'STT_KR_SAMPLE_WEB', 'tmp', 'result')
+        json_path = os.path.join(out_dir, f"{base_id}_segments.json")
+        if not os.path.exists(json_path):
+            return None
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+@csrf_exempt
+def get_caption_summary(request):
+    """세그먼트 JSON을 기반으로 간단한 분석 요약을 반환합니다.
+    Query: ?id=<generator.id>
+    Returns: {
+      id, total_segments, emotions: {label: {count, pct}}, voice_types: {whisper/normal/shout}
+    }
+    """
+    base_id = request.GET.get('id')
+    if not base_id:
+        return JsonResponse({"error": "missing id"}, status=400)
+    segments = _load_segments_json(base_id)
+    if segments is None:
+        return JsonResponse({"error": "not found"}, status=404)
+
+    total = len(segments) if isinstance(segments, list) else 0
+    emotions = {}
+    vtypes = {"whisper": 0, "normal": 0, "shout": 0}
+    for s in segments or []:
+        em = s.get('emotion', 'unknown')
+        emotions[em] = emotions.get(em, 0) + 1
+        vt = s.get('voice_type', 'normal')
+        if vt not in vtypes:
+            vt = 'normal'
+        vtypes[vt] += 1
+
+    # 비율 계산
+    def pct(n):
+        return round((n / total * 100.0), 1) if total > 0 else 0.0
+
+    emotions_pct = {
+        k: {"count": v, "pct": pct(v)} for k, v in sorted(emotions.items(), key=lambda x: x[1], reverse=True)
+    }
+    voice_types_pct = {
+        k: {"count": v, "pct": pct(v)} for k, v in vtypes.items()
+    }
+
+    return JsonResponse({
+        "id": base_id,
+        "total_segments": total,
+        "emotions": emotions_pct,
+        "voice_types": voice_types_pct,
+    }, status=200)

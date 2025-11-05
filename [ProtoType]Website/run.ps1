@@ -32,9 +32,22 @@ $env:HUGGINGFACE_HUB_CACHE = $CacheRoot
 $env:TORCH_HOME = $CacheRoot
 Ensure-Dir $CacheRoot
 
-# Create venv if missing
+# Prefer repository-level venv for exact parity with local pipeline
+$RepoVenv = Join-Path $RepoRoot "venv"
+$RepoPython = Join-Path $RepoVenv "Scripts/python.exe"
+$UseRepoVenv = $false
+if (Test-Path -LiteralPath $RepoPython) {
+    $UseRepoVenv = $true
+    $PythonExe = $RepoPython
+    $VenvPath = $RepoVenv
+    Write-Host "[env] Using repository venv: $VenvPath" -ForegroundColor Yellow
+} else {
+    Write-Host "[env] Repository venv not found. Using website venv: $VenvPath" -ForegroundColor Yellow
+}
+
+# Create venv if missing (only for website venv)
 try {
-    if (-not (Test-Path -LiteralPath $PythonExe)) {
+    if (-not $UseRepoVenv -and -not (Test-Path -LiteralPath $PythonExe)) {
         Write-Host "[setup] Creating virtual environment at $VenvPath" -ForegroundColor Cyan
         try {
             & py -3 -m venv $VenvPath
@@ -45,9 +58,15 @@ try {
     }
 
     # Install dependencies
-    Write-Host "[setup] Upgrading pip and installing requirements" -ForegroundColor Cyan
-    & $PythonExe -m pip install --upgrade pip
-    & $PythonExe -m pip install -r (Join-Path $WebRoot "requirements.txt")
+    if ($UseRepoVenv) {
+        Write-Host "[setup] Using repo venv; skipping website requirements to preserve core versions" -ForegroundColor Cyan
+        # Ensure Django/DRF are available in repo venv
+        & $PythonExe -c "import importlib,sys; sys.exit(0 if importlib.util.find_spec('django') else 1)"; if ($LASTEXITCODE -ne 0) { & $PythonExe -m pip install Django==5.2 djangorestframework }
+    } else {
+        Write-Host "[setup] Upgrading pip and installing website requirements" -ForegroundColor Cyan
+        & $PythonExe -m pip install --upgrade pip
+        & $PythonExe -m pip install -r (Join-Path $WebRoot "requirements.txt")
+    }
 
     # Run migrations (safe no-op if none)
     $ManageDir = Join-Path $WebRoot "STT_KR"

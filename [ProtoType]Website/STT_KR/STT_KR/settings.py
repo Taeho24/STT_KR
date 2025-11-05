@@ -11,12 +11,24 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os, json
+import sys
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 import string, random
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Ensure repository root is importable so web app can use latest local core modules (audio_analyzer, emotion_classifier, subtitle_generator, etc.)
+# BASE_DIR: .../[ProtoType]Website/STT_KR
+# Repo root: .../STT_KR-liveCaption
+# Compute repository root: .../[ProtoType]Website/STT_KR/STT_KR -> go up 3
+_REPO_ROOT = BASE_DIR.parent.parent.parent  # .../STT_KR-liveCaption
+try:
+    if _REPO_ROOT.exists() and str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+except Exception:
+    pass
 
 
 # Quick-start development settings - unsuitable for production

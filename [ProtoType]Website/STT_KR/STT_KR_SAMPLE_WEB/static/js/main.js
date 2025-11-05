@@ -48,6 +48,10 @@ const captionContent = document.getElementById('caption-content');
 const captionTextarea = document.getElementById('caption-textarea');
 const downloadBtn = document.getElementById('download-btn');
 const formatSelect = document.getElementById('format-select');
+const formatSelectTop = document.getElementById('format-select-top');
+const downloadFormatWrapper = document.getElementById('download-format-wrapper');
+const generatedFormatChip = document.getElementById('generated-format-chip');
+const generatedFormatText = document.getElementById('generated-format-text');
 
 // 멀티 슬라이더 요소들
 const multiSlider = document.getElementById('multi-slider');
@@ -68,6 +72,8 @@ const ffmpeg = new FFmpeg();
 await ffmpeg.load();
 
 let audioBlob = null;
+let lastGeneratedFormat = null; // 서버에 요청한 마지막 포맷 기억
+let lastSubtitleId = null;      // 서버가 생성한 자막 ID
 
 // 값을 퍼센트로 변환
 function valueToPercent(value) {
@@ -205,6 +211,9 @@ return;
 // 오디오 파일 추가
 const formData = new FormData();
 formData.append('audio', audioBlob, 'audio.wav');
+// 선택된 포맷을 서버로 전송 (srt/ass)
+const selectedFormat = (formatSelectTop && formatSelectTop.value) || (formatSelect && formatSelect.value) || 'srt';
+formData.append('file_format', selectedFormat);
 
 // 자막 스타일 수집
 formData.append('default_font_size', defaultFontSize.value);
@@ -241,8 +250,61 @@ body: formData,
 });
 if (!res.ok) throw new Error('서버 오류');
 
+// 응답 헤더에서 생성된 ID/형식 수집
+const respFormat = (res.headers && (res.headers.get('X-Format'))) || selectedFormat;
+const respId = (res.headers && (res.headers.get('X-Subtitle-ID'))) || null;
+
 const captions = await res.text();
 captionTextarea.value = captions;
+lastGeneratedFormat = respFormat;
+lastSubtitleId = respId;
+// 하단 포맷 선택기를 상단 선택값과 동기화
+if (formatSelect && formatSelect.value !== respFormat) {
+  formatSelect.value = respFormat;
+}
+// 생성 후 형식 선택기 잠금(다운로드 영역과 상단 모두)
+if (formatSelect) {
+  formatSelect.disabled = true;
+}
+if (formatSelectTop) {
+  formatSelectTop.value = respFormat;
+  formatSelectTop.disabled = true;
+}
+
+// 다운로드 영역: 드롭다운을 숨기고 생성된 형식 Chip 표시
+if (generatedFormatChip && generatedFormatText) {
+  generatedFormatText.textContent = (respFormat || '').toUpperCase();
+  generatedFormatChip.style.display = 'inline-block';
+}
+if (downloadFormatWrapper) {
+  downloadFormatWrapper.style.display = 'none';
+}
+
+// 분석 요약 가져오기 및 표시
+if (lastSubtitleId) {
+  try {
+    const sumRes = await fetch(`/STT/summary/?id=${encodeURIComponent(lastSubtitleId)}`);
+    if (sumRes.ok) {
+      const summary = await sumRes.json();
+      const el = document.getElementById('analysis-summary');
+      const body = document.getElementById('analysis-summary-body');
+      if (el && body) {
+        const vt = summary.voice_types || {};
+        const em = summary.emotions || {};
+        const emTop = Object.entries(em).slice(0, 4)
+          .map(([k, v]) => `${k}: ${v.count}개 (${v.pct}%)`).join(' · ');
+        body.innerHTML = `총 ${summary.total_segments || 0}개 세그먼트<br>` +
+                         `음성 타입 — Whisper ${vt.whisper?.count || 0} (${vt.whisper?.pct || 0}%), ` +
+                         `Normal ${vt.normal?.count || 0} (${vt.normal?.pct || 0}%), ` +
+                         `Shout ${vt.shout?.count || 0} (${vt.shout?.pct || 0}%)<br>` +
+                         (emTop ? `감정 상위: ${emTop}` : '감정 정보 없음');
+        el.style.display = 'block';
+      }
+    }
+  } catch (e) {
+    console.warn('요약 정보를 불러오지 못했습니다.', e);
+  }
+}
 loading.style.display = 'none';
 captionContent.style.display = 'block';
 } catch (err) {
@@ -542,6 +604,17 @@ const videoURL = URL.createObjectURL(file);
 videoPreview.src = videoURL;
 videoFileDimensions = null;
 
+// 이전 생성 상태 초기화
+lastGeneratedFormat = null;
+lastSubtitleId = null;
+const analysisBox = document.getElementById('analysis-summary');
+if (analysisBox) analysisBox.style.display = 'none';
+if (formatSelect) formatSelect.disabled = false;
+if (formatSelectTop) formatSelectTop.disabled = false;
+// 형식 UI 초기화: Chip 숨기고 드롭다운 표시
+if (generatedFormatChip) generatedFormatChip.style.display = 'none';
+if (downloadFormatWrapper) downloadFormatWrapper.style.display = 'inline-flex';
+
 // 미리보기 섹션 표시
 previewSection.style.display = 'block';
 
@@ -560,17 +633,41 @@ captionSection.style.display = 'none';
 
 // 파일 입력 초기화
 fileInput.value = '';
+
+// 상태 초기화
+lastGeneratedFormat = null;
+lastSubtitleId = null;
+const analysisBox = document.getElementById('analysis-summary');
+if (analysisBox) analysisBox.style.display = 'none';
+if (formatSelect) formatSelect.disabled = false;
+if (formatSelectTop) formatSelectTop.disabled = false;
+if (generatedFormatChip) generatedFormatChip.style.display = 'none';
+if (downloadFormatWrapper) downloadFormatWrapper.style.display = 'inline-flex';
 });
 
 // 자막 다운로드 버튼 클릭 시
-downloadBtn.addEventListener('click', () => {
-const format = formatSelect.value;
-const content = captionTextarea.value;
+downloadBtn.addEventListener('click', async () => {
+  const format = formatSelect.value;
+  let content = captionTextarea.value;
 
-if (!content.trim()) {
-alert('다운로드할 자막이 없습니다.');
-return;
-}
+  // 아직 생성 안 했거나, 생성된 포맷과 다른 포맷으로 저장하려는 경우 자동 재생성
+  if (!content.trim() || (lastGeneratedFormat && format !== lastGeneratedFormat)) {
+    try {
+      captionSection.style.display = 'block';
+      loading.style.display = 'block';
+      captionContent.style.display = 'none';
+      await generateCaptions();
+      content = captionTextarea.value;
+    } catch (e) {
+      alert('자막을 다시 생성하는 중 오류가 발생했습니다.');
+      return;
+    }
+  }
+
+  if (!content.trim()) {
+    alert('다운로드할 자막이 없습니다.');
+    return;
+  }
 
 // 파일 이름 설정
 const filename = `captions.${format}`;
@@ -635,3 +732,20 @@ document.getElementById('add-word-btn').addEventListener('click', function() {
 });
 
 updateSliderUI()
+
+// 포맷 선택기 동기화: 상단/하단이 서로 값을 반영
+if (formatSelectTop) {
+  formatSelectTop.addEventListener('change', () => {
+    if (formatSelect && formatSelect.value !== formatSelectTop.value) {
+      formatSelect.value = formatSelectTop.value;
+    }
+  });
+}
+if (formatSelect) {
+  formatSelect.addEventListener('change', () => {
+    // 다운로드 영역은 생성 후 잠금되므로, 잠금 상태에서는 동기화만 유지
+    if (formatSelectTop && !formatSelect.disabled && (formatSelectTop.value !== formatSelect.value)) {
+      formatSelectTop.value = formatSelect.value;
+    }
+  });
+}
