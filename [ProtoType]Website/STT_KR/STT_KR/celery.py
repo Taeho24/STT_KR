@@ -30,7 +30,8 @@ def load_models_on_worker_process_init(sender, **kwargs):
         auth_token = read_auth_token(hf_token_path)
         gemini_api_key = read_gemini_api_key(gemini_api_key_path)
 
-        ModelCache.load_models(device, compute_type, auth_token, gemini_api_key)
+        model_cache = ModelCache(device, compute_type, auth_token, gemini_api_key)
+        model_cache.load_models()
     except Exception as e:
         print(f"ERROR: Celery 워커에서 모델 로드 실패 - {e}")
 

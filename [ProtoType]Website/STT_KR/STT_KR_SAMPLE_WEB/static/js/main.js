@@ -29,7 +29,7 @@ const EMOTIONS = {
   sad: { name: '슬픔', defaultColor: '#A7C7E7' },
   angry: { name: '분노', defaultColor: '#F7A1A1' },
   fear: { name: '공포', defaultColor: '#C9A7E4' },
-  surprise: { name: '놀람', defaultColor: '#7Fa6D9' },
+  surprise: { name: '놀람', defaultColor: '#f5f29e' },
   disgust: { name: '혐오', defaultColor: '#A1E0D3' }
   // newEmotion: { name: '감정', defaultColor: '#색상코드' }
 };
@@ -543,9 +543,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 파일 크기 검사 (500MB 제한)
-    if (file.size > 500 * 1024 * 1024) {
-      alert('파일 크기는 500MB를 초과할 수 없습니다.');
+    // 파일 크기 검사 (5GB 제한)
+    if (file.size > 5 * 1024 * 1024 * 1024) {
+      alert('파일 크기는 5GB를 초과할 수 없습니다.');
       return;
     }
 
