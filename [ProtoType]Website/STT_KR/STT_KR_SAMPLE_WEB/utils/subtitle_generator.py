@@ -53,12 +53,7 @@ class SubtitleGenerator:
 
     def process_video(self, file_format:str = "srt"):
         # WhisperX 모델 불러오기
-        if self.model == "large-v3":
-            model = self.model_cache.large_v3_model
-        elif self.model == "medium":
-            model = self.model_cache.medium_model
-        else:
-            model = self.model_cache.large_v2_model
+        model = self.model_cache.load_whisperx_model(model=self.model)
 
         print(f"오디오 추출 중: {self.audio_path}")
         audio = whisperx.load_audio(self.audio_path)
