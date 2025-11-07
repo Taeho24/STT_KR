@@ -4,6 +4,9 @@ from STT_KR.celery import app
 from .utils.subtitle_generator import SubtitleGenerator 
 from .utils.db_manager import DBManager
 
+from django.db import OperationalError, InterfaceError, InternalError
+from django.db.models import ObjectDoesNotExist
+
 @app.task(bind=True)
 def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_format: str = "srt", model: str = "large-v2"):
     """
@@ -43,8 +46,8 @@ def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_for
 
         print(f"Error: {e}")
         # 파일이 없을 경우 태스크를 실패로 기록합니다.
-        raise e
-    except Exception as e:
+        return e
+    except (OperationalError, InterfaceError, InternalError, ObjectDoesNotExist, Exception) as db_e:
         # 오류 발생 시 오디오 파일 삭제
         try:
             if os.path.exists(audio_path):
@@ -56,5 +59,5 @@ def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_for
             # 권한 문제 등으로 삭제가 실패할 경우 경고만 출력하고 계속 진행
             print(f"오디오 파일 삭제 실패: {e}")
 
-        print(f"An unexpected error occurred: {e}")
-        raise e
+        print(f"An unexpected error occurred: {db_e}")
+        return db_e

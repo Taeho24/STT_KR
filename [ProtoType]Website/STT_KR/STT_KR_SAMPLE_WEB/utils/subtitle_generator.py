@@ -12,6 +12,9 @@ from django.conf import settings
 from .model_cache import ModelCache
 from .db_manager import DBManager
 
+from django.db import OperationalError, InterfaceError, InternalError
+from django.db.models import ObjectDoesNotExist
+
 class SubtitleGenerator:
     def __init__(
             self, audio_path="",
@@ -135,7 +138,11 @@ class SubtitleGenerator:
         else:
             print(f"인식된 언어가 'en'이 아닌 '{language_code}'이기 때문에 감정 분석 과정을 생략합니다.")
 
-        self.db_manager.update_segment(segments)
+        try:
+            self.db_manager.update_segment(segments)
+        except (OperationalError, InterfaceError, InternalError, ObjectDoesNotExist, Exception) as db_e:
+            print(f"CRITICAL ERROR: 세그먼트 DB 저장 실패. 작업을 중단합니다. 오류: {db_e}")
+            return db_e
 
         # 오디오 처리 후 파일 삭제
         try:
@@ -152,7 +159,15 @@ class SubtitleGenerator:
     
     def modify_proper_nouns(self, proper_nouns: list):
         if len(proper_nouns) > 0:
-            segments = self.db_manager.load_segment()
+            try:
+                segments = self.db_manager.load_segment()
+                if not segments:
+                    print("경고: DB에서 세그먼트 데이터를 로드하지 못했습니다. 고유명사 교정 생략.")
+                    return
+            except (OperationalError, InterfaceError, InternalError, ObjectDoesNotExist, Exception) as db_e:
+                print(f"CRITICAL ERROR: DB에서 세그먼트 로드 실패. 작업을 중단합니다. 오류: {db_e}")
+                return db_e
+
             full_text = " ".join([s['text'] for s in segments])
 
             response = self.model_cache.client.models.generate_content(
@@ -200,22 +215,31 @@ class SubtitleGenerator:
                             word['word'] = word['word'].replace(misrecognized_text, modified_text)
 
             # 수정된 세그먼트 데이터 저장
-            self.db_manager.update_segment(segments)
+            try:
+                self.db_manager.update_segment(segments)
+            except (OperationalError, InterfaceError, InternalError, ObjectDoesNotExist, Exception) as db_e:
+                print(f"CRITICAL ERROR: 세그먼트 DB 저장 실패. 작업을 중단합니다. 오류: {db_e}")
+                return db_e
             
             print("고유명사 교정 완료")
         else:
             print("입력된 고유명사가 없어 고유명사 교정 작업을 생략합니다.")
 
     def generate_srt_subtitle(self):
-        subtitle_settings = self.db_manager.load_config()
+        try:
+            subtitle_settings = self.db_manager.load_config()
 
-        srt_subtitle_generator = SRTSubtitleGenerator(subtitle_settings=subtitle_settings)
+            srt_subtitle_generator = SRTSubtitleGenerator(subtitle_settings=subtitle_settings)
 
-        segments = self.db_manager.load_segment()
+            segments = self.db_manager.load_segment()
 
-        srt_subtitle = srt_subtitle_generator.segments_to_srt(segments)
+            srt_subtitle = srt_subtitle_generator.segments_to_srt(segments)
 
-        return srt_subtitle
+            return srt_subtitle
+        
+        except (OperationalError, InterfaceError, InternalError, ObjectDoesNotExist, Exception) as db_e:
+            print(f"CRITICAL ERROR: 최종 자막 생성을 위한 DB 로드/처리 중 오류 발생. 오류: {db_e}")
+            return db_e
     
     def generate_ass_subtitle(self):
         pass
