@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         setTimeout(checkStatus, 3000); // 3초 후 다시 조회
                     } else {
                         // 여기에 만약 Celery 상태가 PENDING/STARTED 외의 다른 JSON으로 온다면 처리
+                        window.location.reload();
                     }
                 } else {
                     // 예상치 못한 응답
