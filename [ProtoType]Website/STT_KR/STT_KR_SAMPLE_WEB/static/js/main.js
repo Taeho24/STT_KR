@@ -543,9 +543,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 파일 크기 검사 (500MB 제한)
-    if (file.size > 500 * 1024 * 1024) {
-      alert('파일 크기는 500MB를 초과할 수 없습니다.');
+    // 파일 크기 검사 (5GB 제한)
+    if (file.size > 5 * 1024 * 1024 * 1024) {
+      alert('파일 크기는 5GB를 초과할 수 없습니다.');
       return;
     }
 
