@@ -1,6 +1,75 @@
 import whisperx
 from google import genai
 
+import torch
+from omegaconf.listconfig import ListConfig
+from omegaconf.dictconfig import DictConfig
+from omegaconf.base import ContainerMetadata, Metadata
+from omegaconf.nodes import AnyNode
+
+from torch.torch_version import TorchVersion
+
+from pyannote.audio.core.model import Introspection
+from pyannote.audio.core.task import Specifications
+from pyannote.audio.core.task import Problem
+from pyannote.audio.core.task import Resolution
+
+from builtins import list, dict, tuple, int, float, bool, str, set # 기본 타입
+from typing import Any, Tuple, Dict, Union, Optional, List, Set, FrozenSet # typing 모듈
+from collections import defaultdict, OrderedDict, deque # collections 모듈
+
+import pytorch_lightning.trainer.states # PyTorch Lightning 상태 관리
+
+# PyTorch Lightning 및 기타 라이브러리에서 흔히 사용되는 클래스 임포트
+try:
+    from torchmetrics.metric import Metric # torchmetrics 사용하는 경우
+except ImportError:
+    # torchmetrics가 없다면 무시
+    Metric = None
+
+# 안전 목록에 추가할 클래스 리스트 (List comprehension으로 정리)
+safe_globals_list = [
+    # Omegaconf 관련 (필수)
+    ListConfig, 
+    DictConfig, 
+    ContainerMetadata,
+    AnyNode,
+    Metadata,
+    
+    # Python 표준 builtins (이전 오류 포함)
+    list, dict, tuple, int, float, bool, str, set,
+    
+    # typing 모듈 (이전 오류 포함)
+    Any, Tuple, Dict, Union, Optional, List, Set, FrozenSet,
+    
+    # collections 모듈 (이전 오류 포함)
+    defaultdict, OrderedDict, deque,
+    
+    # PyTorch Lightning 내부 클래스 (필요할 가능성이 높음)
+    getattr(pytorch_lightning.trainer.states, 'RunningStage', None),
+    getattr(pytorch_lightning.trainer.states, 'TrainerState', None),
+    
+    # PyTorch 내부 클래스
+    TorchVersion,
+
+    # pyannote.audio 관련
+    Introspection,
+    Specifications,
+    Problem,
+    Resolution,
+
+    # torchmetrics 클래스 (Metric 저장 시 필요)
+    Metric,
+]
+
+# None 값을 제거하고 실제 로드된 클래스만 필터링하여 안전 목록에 추가
+safe_globals_to_add = [g for g in safe_globals_list if g is not None]
+
+# 안전 목록 등록
+torch.serialization.add_safe_globals(safe_globals_to_add)
+
+print("INFO: PyTorch 2.6 보안 정책 우회를 위해 모델 체크포인트 클래스들을 안전 목록에 추가했습니다.")
+
 class ModelCache:
     _instance = None
     whisper_model = None
