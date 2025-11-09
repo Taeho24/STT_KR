@@ -173,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 errorStateElement.style.display = 'block';
                 taskStatusElement.textContent = '실패';
+            } else {
+                window.location.reload();
             }
         } catch (error) {
             console.error('폴링 오류:', error);
