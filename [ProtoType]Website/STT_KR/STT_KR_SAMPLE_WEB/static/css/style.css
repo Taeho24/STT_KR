@@ -810,6 +810,16 @@ header {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
+.delete-btn-controls-section {
+    /* Flexbox를 사용하여 내부 요소 배치 시작 */
+    display: flex; 
+    /* 내부 요소를 컨테이너의 오른쪽 끝으로 정렬 */
+    justify-content: flex-end; 
+    /* 필요한 경우 상단/하단 여백 추가 */
+    margin-bottom: 20px; 
+    padding: 0 10px; /* 컨테이너 좌우 여백을 위한 예시 */
+}
+
 .delete-btn {
   background: linear-gradient(135deg, #ea6666 0%, #a24b4b 100%);
   color: white;

@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const captionTextarea = document.getElementById('caption-textarea');
     const loadingElement = document.getElementById('loading');
     const errorStateElement = document.getElementById('error-state');
+    const captionContent = document.getElementById('caption-content')
 
     const formatSelect = document.getElementById('format-select');
 
@@ -151,12 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subtitle = await response.text();
                     
                     if (loadingElement) loadingElement.style.display = 'none';
-                    if (captionTextarea) captionTextarea.value = subtitle;
+                    if (captionTextarea) {
+                        captionTextarea.value = subtitle;
+                    }
                     if (taskStatusElement) {
                         taskStatusElement.textContent = 'SUCCESS';
                         taskStatusElement.className = 'info-value status status-success';
                     }
-                    if (captionContent) captionContent.style.display = 'block';
+                    if (captionContent) {
+                        captionContent.style.display = 'block';
+                    }
 
                     // 화자 매핑 UI 생성/표시 (성공 상태로의 전환)
                     if (SPEAKER_NAMES_MAP) {
