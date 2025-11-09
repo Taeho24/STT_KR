@@ -186,7 +186,7 @@ def generate_caption(request):
                 "emotion_colors": {
                 "neutral": request.POST.get("중립", "#FFFFFF"),
                 "happy": request.POST.get("행복", "#A8E6A1"),
-                "sad": request.POST.get("슬픔", "#f5f29e"),
+                "sad": request.POST.get("슬픔", "#A7C7E7"),
                 "angry": request.POST.get("분노", "#F7A1A1"),
                 "fear": request.POST.get("공포", "#C9A7E4"),
                 "surprise": request.POST.get("놀람", "#f5f29e"),
