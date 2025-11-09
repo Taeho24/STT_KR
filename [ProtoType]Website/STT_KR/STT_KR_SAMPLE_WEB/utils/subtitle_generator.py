@@ -24,6 +24,8 @@ class SubtitleGenerator:
             batch_size=16,
             task_id="", 
             model="large-v2"):
+        self.task_id = task_id
+
         # DB manager 객체 생성
         self.db_manager = DBManager(task_id=task_id)
 
@@ -109,14 +111,14 @@ class SubtitleGenerator:
             emotion_classifier = EmotionClassifier(
                 device=self.device,
                 batch_size=self.batch_size,
-                cache_dir=os.path.join(self.output_path, ".cache"),
-                file_format=file_format
+                cache_dir=os.path.join(self.output_path, ".cache"), 
+                task_id=self.task_id
             )
             print("감정 분류 모델 로드 완료")
 
             # 감정 분석 배치 처리
             print("감정 분석 중...")
-            segments = emotion_classifier.classify_emotions(segments, full_audio=audio)
+            segments = emotion_classifier.classify_audio_only(segments, full_audio=audio)
 
             # 감정 분석 통계 출력
             emotion_stats = {}

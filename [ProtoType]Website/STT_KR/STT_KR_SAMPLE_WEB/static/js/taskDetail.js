@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const captionTextarea = document.getElementById('caption-textarea');
     const loadingElement = document.getElementById('loading');
     const errorStateElement = document.getElementById('error-state');
+    const captionContent = document.getElementById('caption-content')
 
     const formatSelect = document.getElementById('format-select');
 
@@ -147,32 +148,87 @@ document.addEventListener('DOMContentLoaded', () => {
                 const contentType = response.headers.get('Content-Type');
 
                 if (contentType && contentType.includes('text/plain')) {
-                    if (!captionTextarea) {
-                        // SUCCESS: subtitle을 받은 경우
-                        window.location.reload();
+                    // SUCCESS: subtitle을 받은 경우 (작업 완료)
+                    const subtitle = await response.text();
+                    
+                    if (loadingElement) loadingElement.style.display = 'none';
+                    if (captionTextarea) {
+                        captionTextarea.value = subtitle;
                     }
+                    if (taskStatusElement) {
+                        taskStatusElement.textContent = 'SUCCESS';
+                        taskStatusElement.className = 'info-value status status-success';
+                    }
+                    if (captionContent) {
+                        captionContent.style.display = 'block';
+                    }
+
+                    // 화자 매핑 UI 생성/표시 (성공 상태로의 전환)
+                    if (SPEAKER_NAMES_MAP) {
+                        createSpeakerMappingUI(SPEAKER_NAMES_MAP);
+                    }
+                    
+                    // Polling 종료
+                    return;
+
                 } else if (contentType && contentType.includes('application/json')) {
                     // PROCESSING: JSON 상태를 받은 경우
                     const data = await response.json();
-                    if (data.status === 'processing') {
-                        taskStatusElement.textContent = `처리 중 (${data.current_status})...`;
-                        setTimeout(checkStatus, 3000); // 3초 후 다시 조회
+                    
+                    if (data.status === 'processing' || data.current_status === 'STARTED' || data.current_status === 'PENDING') {
+                        if (taskStatusElement) {
+                            taskStatusElement.textContent = `처리 중 (${data.current_status})...`;
+                            taskStatusElement.className = 'info-value status status-started'; 
+                        }
+                        // Polling 계속
+                        setTimeout(checkStatus, 3000); 
                     } else {
-                        // 여기에 만약 Celery 상태가 PENDING/STARTED 외의 다른 JSON으로 온다면 처리
-                        window.location.reload();
+                        // 작업이 JSON으로 완료되었으나 예상치 못한 상태 (예: SUCCESS/FAILURE JSON)
+                        // 안전을 위해 다시 폴링하여 텍스트/500 응답을 기다립니다.
+                        setTimeout(checkStatus, 1000); 
                     }
                 } else {
                     // 예상치 못한 응답
-                    throw new Error("서버로부터 예상치 못한 응답을 받았습니다.");
+                    console.warn("서버로부터 예상치 못한 응답을 받았습니다.");
+                    // 재시도
+                    setTimeout(checkStatus, 5000);
                 }
 
             } else if (response.status === 500) {
                 // FAILURE/ERROR: 서버 에러 (500)
-                if(loadingElement) {
-                    loadingElement.style.display = 'none';
+                if (taskStatusElement) {
+                    taskStatusElement.textContent = 'FAILURE';
+                    taskStatusElement.className = 'info-value status status-failure';
                 }
-                errorStateElement.style.display = 'block';
-                taskStatusElement.textContent = '실패';
+                // 오류 상태 UI 표시 (null 체크 필수)
+                if (loadingElement) loadingElement.style.display = 'none';
+                if (errorStateElement) {
+                    errorStateElement.style.display = 'block';
+                    const errorMessageElement = document.getElementById('error-message');
+                    if (errorMessageElement) {
+                        // 오류 메시지 업데이트
+                        errorMessageElement.textContent = `자막 생성에 실패했습니다. (서버 오류: 500)`;
+                    }
+                }
+                // Polling 종료
+
+            } else {
+                // 기타 오류 (404 Not Found 등, 삭제된 작업일 가능성)
+                console.warn(`Unexpected response status: ${response.status}. Stopping polling.`);
+                if (taskStatusElement) {
+                    taskStatusElement.textContent = 'N/A';
+                    taskStatusElement.className = 'info-value status status-failure';
+                }
+                if (loadingElement) loadingElement.style.display = 'none';
+                if (errorStateElement) {
+                    errorStateElement.style.display = 'block';
+                    const errorMessageElement = document.getElementById('error-message');
+                    if (errorMessageElement) {
+                        // 오류 메시지 업데이트
+                        errorMessageElement.textContent = `자막 생성에 실패했습니다. (서버 오류: 500)`;
+                    }
+                }
+                // Polling 종료
             }
         } catch (error) {
             console.error('폴링 오류:', error);
