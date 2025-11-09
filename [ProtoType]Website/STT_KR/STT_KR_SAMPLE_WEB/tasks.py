@@ -20,7 +20,7 @@ def process_and_generate_srt_task(self, audio_path, proper_nouns: list, file_for
 
         sg = SubtitleGenerator(audio_path=audio_path, task_id=task_id, model=model)
         
-        sg.process_video(file_format=file_format)
+        sg.process_video()
 
         if len(proper_nouns) > 0:
             sg.modify_proper_nouns(proper_nouns)
