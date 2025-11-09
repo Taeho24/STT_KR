@@ -185,12 +185,12 @@ def generate_caption(request):
             "hex_colors": {
                 "emotion_colors": {
                 "neutral": request.POST.get("중립", "#FFFFFF"),
-                "happy": request.POST.get("행복", "#00FF00"),
-                "sad": request.POST.get("슬픔", "#0000FF"),
-                "angry": request.POST.get("분노", "#FF0000"),
-                "fear": request.POST.get("공포", "#800080"),
-                "surprise": request.POST.get("놀람", "#00FFFF"),
-                "disgust": request.POST.get("혐오", "#008080"),
+                "happy": request.POST.get("행복", "#A8E6A1"),
+                "sad": request.POST.get("슬픔", "#f5f29e"),
+                "angry": request.POST.get("분노", "#F7A1A1"),
+                "fear": request.POST.get("공포", "#C9A7E4"),
+                "surprise": request.POST.get("놀람", "#f5f29e"),
+                "disgust": request.POST.get("혐오", "#A1E0D3"),
             },
                 "default_color": request.POST.get("중립", "#FFFFFF"),
                 "highlight_color": request.POST.get("highlight_color", "#FFFF00")
