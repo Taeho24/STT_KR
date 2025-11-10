@@ -159,6 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         taskStatusElement.textContent = 'SUCCESS';
                         taskStatusElement.className = 'info-value status status-success';
                     }
+                    if (speakerMappingSection) {
+                        speakerMappingSection.style.display = 'block';
+                    }
                     if (captionContent) {
                         captionContent.style.display = 'block';
                     }
