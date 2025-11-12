@@ -145,11 +145,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/STT/status/${TASK_ID}/`);
 
             if (response.status === 200) {
-                const contentType = response.headers.get('Content-Type');
+                const data = await response.json();
 
-                if (contentType && contentType.includes('text/plain')) {
+                if (data.status === 'SUCCESS') {
                     // SUCCESS: subtitle을 받은 경우 (작업 완료)
-                    const subtitle = await response.text();
+                    const subtitle = data.subtitle;
+                    const speakerMap = data.speaker_map || {};
                     
                     if (loadingElement) loadingElement.style.display = 'none';
                     if (captionTextarea) {
@@ -167,9 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // 화자 매핑 UI 생성/표시 (성공 상태로의 전환)
-                    if (SPEAKER_NAMES_MAP) {
-                        createSpeakerMappingUI(SPEAKER_NAMES_MAP);
-                    }
+                    createSpeakerMappingUI(speakerMap);
                     
                     // Polling 종료
                     return;
