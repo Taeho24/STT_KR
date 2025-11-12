@@ -110,16 +110,21 @@ def get_task_status_api(request, task_id):
         # 작업 완료 여부 확인
         if result.ready():
             if result.successful():
-                # 작업 성공 시: Celery에서 최종 결과(SRT)를 가져옵니다.
+                # 작업 성공 시: Celery에서 최종 결과(SRT)와 화자 정보를 가져옵니다.
                 srt_text = db_manager.load_srt_subtitle()
+                speaker_map = db_manager.get_speaker_name()
                 
                 # DB에 결과가 없으면 저장 (안정성 확보)
                 if not db_manager.get_task() or db_manager.load_srt_subtitle == "":
                     srt_text = result.get()
                     db_manager.update_srt_subtitle(srt_subtitle=srt_text)
                 
-                # 클라이언트에게 SRT 텍스트를 text/plain으로 반환
-                return HttpResponse(srt_text, content_type="text/plain; charset=utf-8")
+                # 클라이언트에게 SRT 텍스트와 화자 정보를 JSON으로 반환
+                return JsonResponse({
+                    "status": "SUCCESS",
+                    "subtitle": srt_text,
+                    "speaker_map": speaker_map
+                }, status=200)
 
             elif celery_status in ['FAILURE', 'REVOKED']:
                 # 작업 실패 또는 취소 시: 서버 에러 반환 (클라이언트 JS가 500을 처리하도록)
